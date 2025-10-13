@@ -1,33 +1,34 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id("org.jetbrains.kotlin.android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
-    namespace = "com.example.chefito"
-    compileSdk = flutter.compileSdkVersion
+    namespace = "com.chefito.app"
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.chefito"
+    applicationId = "com.chefito.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -37,8 +38,27 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    configurations.all {
+        resolutionStrategy {
+            force("androidx.exifinterface:exifinterface:1.3.7")
+        }
+    }
 }
 
 flutter {
     source = "../.."
+}
+
+
+apply(plugin = "com.google.gms.google-services")
+
+afterEvaluate {
+    tasks.findByName("assembleDebug")?.let { assembleTask ->
+        tasks.register<Copy>("copyDebugApk") {
+            from("$buildDir/outputs/apk/debug/app-debug.apk")
+            into("$rootDir/../build/app/outputs/flutter-apk")
+            dependsOn(assembleTask)
+        }
+    }
 }
