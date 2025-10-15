@@ -1,6 +1,5 @@
 plugins {
     id("com.android.application")
-    id("kotlin-android")
     id("org.jetbrains.kotlin.android")
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -20,7 +19,6 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
     applicationId = "com.chefito.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -50,6 +48,12 @@ flutter {
     source = "../.."
 }
 
+dependencies {
+    implementation("com.google.mlkit:image-labeling:17.0.7")
+    implementation("com.google.mlkit:object-detection:17.0.0")
+    implementation("com.google.mlkit:object-detection-custom:17.0.1")
+    implementation("com.google.android.gms:play-services-mlkit-image-labeling:16.0.8")
+}
 
 apply(plugin = "com.google.gms.google-services")
 
