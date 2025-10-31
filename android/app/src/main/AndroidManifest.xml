@@ -1,7 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.CAMERA"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>  
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/> 
+    <!-- For Android 13+ (API 33+): read images permission -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- For API <= 32 keep legacy read permission -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <!-- WRITE_EXTERNAL_STORAGE is deprecated; remove to avoid warnings/errors on modern SDKs -->
     <application
         android:label="chefito"
         android:name="${applicationName}"
