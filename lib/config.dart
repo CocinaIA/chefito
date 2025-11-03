@@ -13,4 +13,9 @@ class AppConfig {
   // Configuración web
   static const bool isWebOptimized = true;
   static const String landingPageTitle = 'Chefito - Tu Asistente de Cocina Inteligente';
-  static const String landingPageDescription = 'Escanea tickets de compra y gestiona tu alacena de forma inteligente';
+  static const String landingPageDescription = 'Cocina con lo que ya compraste. Escanea tickets y recibe recetas personalizadas.';
+  
+  // ChatGPT API Configuration
+  static const String openAIApiKey = ''; // Agregar tu API key aquí
+  static const String openAIApiUrl = 'https://api.openai.com/v1/chat/completions';
+}

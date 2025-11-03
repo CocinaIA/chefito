@@ -1,11 +1,11 @@
 {
-    "name": "Chefito - Asistente de Cocina Inteligente",
+    "name": "Chefito - Cocina con lo que ya compraste",
     "short_name": "Chefito",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#4CAF50",
     "theme_color": "#4CAF50",
-    "description": "Escanea tickets de compra y gestiona tu alacena de forma inteligente con IA",
+    "description": "Escanea tickets y recibe recetas personalizadas con ChatGPT. Tu asistente de cocina inteligente.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "categories": ["food", "lifestyle", "productivity"],

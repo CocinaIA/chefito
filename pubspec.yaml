@@ -11,10 +11,6 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # Base de datos local
-  sqflite: ^2.3.0
-  path: ^1.8.3
-  
   # OCR y ML
   google_mlkit_text_recognition: ^0.15.0
   google_mlkit_image_labeling: ^0.14.1
@@ -27,10 +23,16 @@ dependencies:
   cupertino_icons: ^1.0.8
   
   # HTTP para APIs externas (opcional)
-  http: ^1.2.2
+  http: ^1.5.0
   
   # Animations
   lottie: ^3.3.0
+  
+  # Firebase
+  firebase_core: ^4.2.0
+  firebase_auth: ^6.1.1
+  cloud_firestore: ^6.0.3
+  cloud_functions: ^6.0.3
 
 dev_dependencies:
   flutter_test:
