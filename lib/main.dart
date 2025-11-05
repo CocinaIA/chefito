@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'ingredient_recognizer.dart';
 import 'screens/receipt_scanner_screen.dart';
 import 'screens/pantry_screen.dart';
+import 'screens/recipes_screen.dart';
 import 'config.dart';
 
 void main() async {
@@ -42,6 +43,7 @@ class ChefitoApp extends StatelessWidget {
         '/reconocer': (context) => const IngredientRecognizer(),
         '/ticket': (context) => const ReceiptScannerScreen(),
         '/pantry': (context) => const PantryScreen(),
+        '/recipes': (context) => const RecipesScreen(),
       },
     );
   }
@@ -94,6 +96,14 @@ class HomeScreen extends StatelessWidget {
               },
               icon: const Icon(Icons.kitchen),
               label: const Text("Mi alacena"),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pushNamed(context, '/recipes');
+              },
+              icon: const Icon(Icons.restaurant_menu),
+              label: const Text("Ver recetas sugeridas"),
             ),
           ],
         ),
