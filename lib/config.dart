@@ -3,6 +3,9 @@ class AppConfig {
   // Example: 'https://chefito-nanonets-worker.your-id.workers.dev'
   static const String nanonetsProxyUrl = 'https://chefito-nanonets-worker.chefito.workers.dev';
 
+  // AI recipes generation endpoint (Cloudflare Worker)
+  static const String recipesAiUrl = 'https://chefito-nanonets-worker.chefito.workers.dev/recipes/generate';
+
   // Use Firestore emulator instead of production (set true for desarrollo sin crear BD en Firebase).
   static const bool useFirestoreEmulator = false; // DESACTIVADO temporalmente - usar producción
   // Host y puerto del emulador. Para Android Emulator usa 10.0.2.2; para dispositivo físico usa la IP de tu PC.
