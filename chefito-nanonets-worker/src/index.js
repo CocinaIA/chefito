@@ -24,6 +24,10 @@ export default {
 				return json({ ok: true, service: 'chefito-worker' });
 			}
 
+			if (url.pathname === '/models' && request.method === 'GET') {
+				return await handleListModels(env);
+			}
+
 			if (url.pathname === '/recipes/generate' && request.method === 'POST') {
 				return await handleGenerateRecipes(request, env);
 			}
@@ -51,9 +55,18 @@ function json(obj, status = 200) {
 }
 
 async function handleGenerateRecipes(request, env) {
-	const body = await request.json().catch(() => ({}));
+	// Read raw body for debugging/logging and then parse JSON
+	const raw = await request.text().catch(() => '');
+	let body;
+	try {
+		body = raw ? JSON.parse(raw) : {};
+	} catch (e) {
+		console.log('Invalid JSON body', { raw });
+		return json({ error: 'Invalid JSON', detail: String(e) }, 400);
+	}
+	console.log('Incoming /recipes/generate body', { body });
 	const ingredients = Array.isArray(body.ingredients) ? body.ingredients : [];
-	const max = Math.min(Number(body.max ?? 5) || 5, 10);
+	const max = Math.min(Number(body.max ?? 3) || 3, 10);
 	const prefs = body.prefs || {};
 
 	if (!ingredients.length) {
@@ -78,7 +91,9 @@ Reglas:
 Preferencias: ${JSON.stringify(prefs)}
 Devuelve SOLO JSON siguiendo el esquema. Nada de texto adicional.`;
 
-	const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(apiKey);
+	// Use a model confirmed by ListModels
+	const model = 'gemini-2.5-flash';
+	const endpoint = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
 	const payload = {
 		contents: [
@@ -86,10 +101,9 @@ Devuelve SOLO JSON siguiendo el esquema. Nada de texto adicional.`;
 			{ role: 'user', parts: [{ text: user }] },
 		],
 		generationConfig: {
-			temperature: 0.6,
+			temperature: 0.4,
 			topP: 0.9,
-			maxOutputTokens: 1024,
-			response_mime_type: 'application/json',
+			maxOutputTokens: 512,
 		},
 	};
 
@@ -103,20 +117,48 @@ Devuelve SOLO JSON siguiendo el esquema. Nada de texto adicional.`;
 		return json({ error: 'Gemini error', status: resp.status, detail: await resp.text() }, resp.status);
 	}
 
-	const data = await resp.json();
-	const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+		const data = await resp.json();
+		let text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 	if (!text) {
+		console.log('Model returned no text', JSON.stringify(data));
 		return json({ error: 'Empty model response' }, 502);
 	}
 
 	let parsed;
 	try {
-		parsed = JSON.parse(text);
+		// Strip common code-fence wrappers like ```json ... ```
+		const stripped = text
+			.replace(/^```(?:json)?\s*/i, '')
+			.replace(/\s*```\s*$/i, '');
+		parsed = JSON.parse(stripped);
 	} catch (e) {
-		// Fallback: try to extract the first JSON block
-		const m = text.match(/\{[\s\S]*\}/);
-		if (!m) return json({ error: 'Model returned non-JSON', raw: text }, 502);
-		try { parsed = JSON.parse(m[0]); } catch (e2) {
+		// Fallback: attempt to extract the longest balanced JSON object
+		const extractBalanced = (s) => {
+			const start = s.indexOf('{');
+			if (start === -1) return null;
+			let depth = 0;
+			let inStr = false;
+			let esc = false;
+			for (let i = start; i < s.length; i++) {
+				const ch = s[i];
+				if (inStr) {
+					if (esc) { esc = false; }
+					else if (ch === '\\') { esc = true; }
+					else if (ch === '"') { inStr = false; }
+				} else {
+					if (ch === '"') inStr = true;
+					else if (ch === '{') depth++;
+					else if (ch === '}') {
+						depth--;
+						if (depth === 0) return s.slice(start, i + 1);
+					}
+				}
+			}
+			return null;
+		};
+		const candidate = extractBalanced(text) || (text.match(/\{[\s\S]*\}/)?.[0] ?? null);
+		if (!candidate) return json({ error: 'Model returned non-JSON', raw: text }, 502);
+		try { parsed = JSON.parse(candidate); } catch (e2) {
 			return json({ error: 'Invalid JSON from model', raw: text }, 502);
 		}
 	}
@@ -131,5 +173,16 @@ Devuelve SOLO JSON siguiendo el esquema. Nada de texto adicional.`;
 	}
 
 	return json({ recipes });
+}
+
+async function handleListModels(env) {
+	const apiKey = env.GOOGLE_API_KEY;
+	if (!apiKey) return json({ error: 'Missing GOOGLE_API_KEY secret' }, 500);
+	const url = `https://generativelanguage.googleapis.com/v1/models?key=${encodeURIComponent(apiKey)}`;
+	const resp = await fetch(url);
+	const body = await resp.json().catch(() => ({}));
+	if (!resp.ok) return json({ error: 'ListModels failed', status: resp.status, detail: body }, resp.status);
+	const names = Array.isArray(body.models) ? body.models.map(m => m.name) : [];
+	return json({ models: names });
 }
 
