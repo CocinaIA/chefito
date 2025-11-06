@@ -1,93 +1,109 @@
-export default {
-  async fetch(request, env, ctx) {
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders() });
-    }
+import { onCall } from 'firebase-functions/v2/https';
+import { defineSecret } from 'firebase-functions/params';
+import axios from 'axios';
+import FormData from 'form-data';
+
+// Secrets (set with `firebase functions:secrets:set ...`)
+const NANONETS_API_KEY = defineSecret('NANONETS_API_KEY');
+const NANONETS_MODEL_ID = defineSecret('NANONETS_MODEL_ID');
+
+export const nanonetsParseReceipt = onCall(
+  { region: 'us-central1', secrets: [NANONETS_API_KEY, NANONETS_MODEL_ID] },
+  async (request) => {
     try {
-      const { imageUrl, imageBase64, modelId } = await request.json();
+      const data = request?.data || {};
+      const imageUrl = typeof data.imageUrl === 'string' && data.imageUrl.trim() ? data.imageUrl.trim() : undefined;
+      const imageBase64 = typeof data.imageBase64 === 'string' && data.imageBase64.trim() ? data.imageBase64.trim() : undefined;
+      const modelId = data.modelId || NANONETS_MODEL_ID.value();
+      const apiKey = NANONETS_API_KEY.value();
+
       if (!imageUrl && !imageBase64) {
-        return json({ error: 'Provide imageUrl or imageBase64' }, 400);
+        throw new Error('Provide imageUrl or imageBase64');
       }
-      const apiKey = env.NANONETS_API_KEY;
-      const model = modelId || env.NANONETS_MODEL_ID;
-      if (!apiKey || !model) {
-        return json({ error: 'Missing secrets' }, 500);
+      if (!apiKey || !modelId) {
+        throw new Error('Missing NANONETS_API_KEY or NANONETS_MODEL_ID');
       }
 
-      const endpoint = `https://app.nanonets.com/api/v2/OCR/Model/${model}/LabelFile/`;
+      const endpoint = `https://app.nanonets.com/api/v2/OCR/Model/${modelId}/LabelFile/?async=false`;
+
       let resp;
       if (imageUrl) {
-        resp = await fetch(endpoint, {
-          method: 'POST',
+        // Send as multipart/form-data for compatibility
+        const form = new FormData();
+        form.append('urls', imageUrl);
+        resp = await axios.post(endpoint, form, {
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Basic ' + btoa(apiKey + ':'),
+            ...form.getHeaders(),
+            Authorization: 'Basic ' + Buffer.from(apiKey + ':').toString('base64'),
           },
-          body: JSON.stringify({ urls: [imageUrl] }),
+          validateStatus: () => true,
         });
       } else {
-        const bin = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
+        const bin = Buffer.from(imageBase64, 'base64');
         const form = new FormData();
-        form.append('file', new Blob([bin], { type: 'image/jpeg' }), 'receipt.jpg');
-        resp = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Authorization': 'Basic ' + btoa(apiKey + ':') },
-          body: form,
+        form.append('file', bin, { filename: 'receipt.jpg', contentType: 'image/jpeg' });
+        resp = await axios.post(endpoint, form, {
+          headers: {
+            ...form.getHeaders(),
+            Authorization: 'Basic ' + Buffer.from(apiKey + ':').toString('base64'),
+          },
+          maxBodyLength: Infinity,
+          validateStatus: () => true,
         });
       }
 
-      if (!resp.ok) {
-        return json({ error: 'Nanonets error', detail: await resp.text() }, resp.status);
+      if (!resp || resp.status < 200 || resp.status >= 300) {
+        const detail = resp?.data || resp?.statusText || 'Unknown';
+        return { error: 'Nanonets error', status: resp?.status || 502, detail };
       }
 
-      const raw = await resp.json();
+      const raw = resp.data || {};
       const ingredients = extractIngredients(raw);
-      return json({ ingredients, raw });
+      return { ingredients, raw };
     } catch (e) {
-      return json({ error: String(e) }, 500);
+      return { error: e?.message || String(e) };
     }
   }
-};
+);
 
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  };
-}
-function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-  });
-}
 function extractIngredients(raw) {
   const out = new Set();
-  const result = raw?.result?.[0];
-  if (Array.isArray(result?.prediction)) {
-    for (const p of result.prediction) {
-      const label = (p?.label || '').toLowerCase();
-      const value = (p?.ocr_text || p?.value || '').toString().trim();
-      if (value && /(item|description|product|name)/.test(label)) pushLines(out, value);
+  const results = Array.isArray(raw?.result) ? raw.result : [];
+  for (const r of results) {
+    const preds = Array.isArray(r?.prediction) ? r.prediction : [];
+    const rows = new Map();
+    for (const p of preds) {
+      const label = String(p?.label || '').toLowerCase();
+      const text = String(p?.ocr_text || p?.text || p?.value || '').trim();
+      if (!text) continue;
+      const rowIndex = p?.row_index ?? p?.cells?.[0]?.row ?? 0;
+      const row = rows.get(rowIndex) || {};
+      if (label === 'description' || label === 'product_code' || label === 'item' || label === 'name') {
+        row.description = (row.description ? row.description + ' ' : '') + text;
+      } else if (label === 'quantity' || label === 'qty') {
+        row.quantity = text;
+      }
+      rows.set(rowIndex, row);
     }
-  }
-  if (Array.isArray(result?.line_items)) {
-    for (const li of result.line_items) {
-      const desc = (li?.description || li?.item || li?.name || '').toString().trim();
-      if (desc) pushLines(out, desc);
+    for (const [, row] of rows) {
+      if (row.description) {
+        const ingredient = row.quantity ? `${row.description} (${row.quantity})` : row.description;
+        pushCandidate(out, ingredient);
+      }
     }
-  }
-  if (Array.isArray(result?.text_blocks)) {
-    for (const tb of result.text_blocks) {
-      const text = (tb?.text || '').toString();
-      pushLines(out, text);
+    const blocks = Array.isArray(r?.text_blocks) ? r.text_blocks : [];
+    for (const tb of blocks) {
+      const t = String(tb?.text || '').trim();
+      if (t) pushCandidate(out, t);
     }
   }
   return Array.from(out);
 }
-function pushLines(set, text) {
-  for (const p of text.split(/\r?\n/).map(s => s.trim()).filter(Boolean)) {
+
+function pushCandidate(set, text) {
+  for (const line of String(text).split(/\r?\n/)) {
+    const p = line.trim();
+    if (!p) continue;
     if (/(\d+[\.,]\d{2})|€|total|iva|subtotal|pago|cambio|x\d+/i.test(p)) continue;
     const cleaned = p.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').trim();
     if (cleaned) set.add(cleaned);

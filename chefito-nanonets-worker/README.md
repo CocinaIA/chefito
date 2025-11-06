@@ -3,7 +3,8 @@
 Este Worker expone:
 
 - `GET /health` → estado simple
-- `POST /recipes/generate` → genera recetas con Gemini 1.5 Flash a partir de `ingredients: string[]`
+- `POST /recipes/generate` → genera recetas con Gemini (modelo flash) a partir de `ingredients: string[]`
+- `POST /nanonets/parse` → proxy a Nanonets OCR. Acepta `{ imageUrl?: string, imageBase64?: string }` y devuelve `{ ingredients: string[], raw, count }`.
 
 Respuesta JSON esperada:
 
@@ -57,6 +58,13 @@ npx wrangler secret put GOOGLE_API_KEY
 # Pega aquí la API Key de Gemini cuando lo pida
 ```
 
+Para Nanonets (opcional, solo si usarás el proxy `/nanonets/parse`):
+
+```powershell
+npx wrangler secret put NANONETS_API_KEY
+npx wrangler secret put NANONETS_MODEL_ID
+```
+
 ## Despliegue
 
 ```powershell
@@ -75,6 +83,16 @@ curl https://<subdominio>.workers.dev/health
 curl -X POST -H "Content-Type: application/json" `
   -d "{\"ingredients\":[\"pasta\",\"tomate\",\"aceite\",\"sal\"]}" `
   https://<subdominio>.workers.dev/recipes/generate
+
+# Nanonets proxy (ejemplo con URL)
+curl -X POST -H "Content-Type: application/json" `
+  -d "{\"imageUrl\":\"https://.../ticket.jpg\"}" `
+  https://<subdominio>.workers.dev/nanonets/parse
+
+# Nanonets proxy (ejemplo con base64)
+curl -X POST -H "Content-Type: application/json" `
+  -d "{\"imageBase64\":\"<BASE64>\"}" `
+  https://<subdominio>.workers.dev/nanonets/parse
 ```
 
 ## Integración con Flutter
