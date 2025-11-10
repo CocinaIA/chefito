@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config.dart';
@@ -14,6 +15,13 @@ class RecipeAIService {
     Map<String, dynamic>? prefs,
   }) async {
     if (endpoint.isEmpty) throw Exception('recipesAiUrl is empty');
+    debugPrint('🔁 RecipeAIService.generate -> POST $endpoint');
+    debugPrint('🔁 Payload: ${jsonEncode({
+      'ingredients': ingredients,
+      'max': max,
+      if (prefs != null) 'prefs': prefs,
+    })}');
+
     final resp = await http.post(
       Uri.parse(endpoint),
       headers: {'Content-Type': 'application/json'},
@@ -23,6 +31,9 @@ class RecipeAIService {
         if (prefs != null) 'prefs': prefs,
       }),
     );
+    debugPrint('🔁 Response status: ${resp.statusCode}');
+    debugPrint('🔁 Response body: ${resp.body}');
+
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw Exception('AI error ${resp.statusCode}: ${resp.body}');
     }
