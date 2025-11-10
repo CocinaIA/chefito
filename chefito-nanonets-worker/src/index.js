@@ -312,42 +312,102 @@ async function handleNanonetsParse(request, env) {
 	const data = await resp.json().catch(() => ({}));
 	// Extract ingredients heuristically from Nanonets response
 	const ingredients = extractIngredientsFromNanonets(data);
+	
+	// Log para debugging
+	console.log('Nanonets response structure:', JSON.stringify({
+		hasResult: !!data?.result,
+		resultLength: Array.isArray(data?.result) ? data.result.length : 0,
+		firstResult: data?.result?.[0] ? {
+			hasPrediction: !!data.result[0].prediction,
+			predictionLength: Array.isArray(data.result[0].prediction) ? data.result[0].prediction.length : 0,
+			firstPrediction: data.result[0].prediction?.[0],
+		} : null,
+		extractedCount: ingredients.length,
+	}, null, 2));
+	
 	return json({ ingredients, raw: data, count: ingredients.length });
 }
 
 function extractIngredientsFromNanonets(raw) {
 	const out = new Set();
 	const results = Array.isArray(raw?.result) ? raw.result : [];
+	
 	for (const r of results) {
 		const preds = Array.isArray(r?.prediction) ? r.prediction : [];
-		// Try table-style fields: description/product_code with optional quantity
-		const rows = new Map(); // rowIndex -> { description, quantity }
+		
+		// ESTRATEGIA 1: Extraer de CELLS (para modelos tipo tabla como el tuyo)
+		for (const p of preds) {
+			// Si la predicción tiene cells (estructura de tabla)
+			const cells = Array.isArray(p?.cells) ? p.cells : [];
+			if (cells.length > 0) {
+				// Organizar por filas
+				const rows = new Map();
+				for (const cell of cells) {
+					const label = String(cell?.label || '').toLowerCase();
+					const text = String(cell?.text || '').trim();
+					if (!text) continue;
+					
+					const rowIndex = cell?.row ?? 0;
+					const row = rows.get(rowIndex) || {};
+					
+					if (label === 'description' || label === 'producto' || label === 'item' || label === 'name') {
+						row.description = (row.description ? row.description + ' ' : '') + text;
+					} else if (label === 'line_amount' || label === 'quantity' || label === 'qty' || label === 'cantidad') {
+						row.quantity = text;
+					}
+					
+					rows.set(rowIndex, row);
+				}
+				
+				// Agregar todas las descripciones encontradas
+				for (const [, row] of rows) {
+					if (row.description) {
+						pushCandidate(out, row.description);
+					}
+				}
+			}
+		}
+		
+		// ESTRATEGIA 2: Extraer textos directos de predicciones (si no hay cells)
+		for (const p of preds) {
+			const text = String(p?.ocr_text || p?.text || p?.value || '').trim();
+			// Solo agregar si no es la palabra "table" (placeholder)
+			if (text && text.toLowerCase() !== 'table') {
+				pushCandidate(out, text);
+			}
+		}
+		
+		// ESTRATEGIA 3: Tabla organizada por filas (predicciones con row_index)
+		const rows = new Map();
 		for (const p of preds) {
 			const label = String(p?.label || '').toLowerCase();
 			const text = String(p?.ocr_text || p?.text || p?.value || '').trim();
-			if (!text) continue;
-			const rowIndex = p?.row_index ?? p?.cells?.[0]?.row ?? 0;
+			if (!text || text.toLowerCase() === 'table') continue;
+			
+			const rowIndex = p?.row_index ?? 0;
 			const row = rows.get(rowIndex) || {};
-			if (label === 'description' || label === 'product_code' || label === 'item' || label === 'name') {
+			
+			if (label === 'description' || label === 'product_code' || label === 'item' || label === 'name' || label === 'producto') {
 				row.description = (row.description ? row.description + ' ' : '') + text;
-			} else if (label === 'quantity' || label === 'qty') {
-				row.quantity = text;
 			}
+			
 			rows.set(rowIndex, row);
 		}
+		
 		for (const [, row] of rows) {
 			if (row.description) {
-				const ingredient = row.quantity ? `${row.description} (${row.quantity})` : row.description;
-				pushCandidate(out, ingredient);
+				pushCandidate(out, row.description);
 			}
 		}
-		// Fallback to text_blocks
+		
+		// ESTRATEGIA 4: Bloques de texto (fallback final)
 		const blocks = Array.isArray(r?.text_blocks) ? r.text_blocks : [];
 		for (const tb of blocks) {
 			const t = String(tb?.text || '').trim();
 			if (t) pushCandidate(out, t);
 		}
 	}
+	
 	return Array.from(out);
 }
 
