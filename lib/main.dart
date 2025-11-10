@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'ingredient_recognizer.dart';
@@ -13,6 +14,17 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // Ensure we have a user for Firestore rules (owner-only writes)
+  // If the provider isn't enabled yet in Firebase Console, don't crash the app.
+  try {
+    await FirebaseAuth.instance.signInAnonymously();
+    debugPrint('✅ Signed in anonymously as: ${FirebaseAuth.instance.currentUser?.uid}');
+  } on FirebaseAuthException catch (e) {
+    debugPrint('⚠️ Anonymous sign-in failed (FirebaseAuthException): ${e.code} ${e.message}');
+  } catch (e) {
+    debugPrint('⚠️ Anonymous sign-in failed: $e');
+  }
+  
   
   debugPrint('🔥 Firebase initialized');
   debugPrint('🔥 useFirestoreEmulator: ${AppConfig.useFirestoreEmulator}');

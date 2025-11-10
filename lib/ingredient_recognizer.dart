@@ -2,8 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'services/pantry_repository.dart';
 
 class IngredientRecognizer extends StatefulWidget {
   const IngredientRecognizer({super.key});
@@ -16,6 +15,7 @@ class _IngredientRecognizerState extends State<IngredientRecognizer> {
   File? _image;
   String _result = "";
   bool _loading = false;
+  final _repo = PantryRepository();
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -51,15 +51,8 @@ class _IngredientRecognizerState extends State<IngredientRecognizer> {
       _result = "Ingrediente detectado: ${bestLabel.label}";
     });
 
-    // Guardar en Firestore
-    final db = FirebaseFirestore.instance;
-    final userId = FirebaseAuth.instance.currentUser?.uid ?? "anon";
-    await db.collection("alacena").add({
-      "nombre": bestLabel.label,
-      "usuarioId": userId,
-      "confianza": bestLabel.confidence,
-      "fecha": DateTime.now(),
-    });
+    // Guardar en la alacena del usuario
+    await _repo.addItem(bestLabel.label, source: 'camera');
   }
 
   @override

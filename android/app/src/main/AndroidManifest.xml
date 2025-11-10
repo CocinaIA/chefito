@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Internet for Firestore/Functions in all build variants (debug/release) -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.CAMERA"/>
     <!-- For Android 13+ (API 33+): read images permission -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
@@ -8,7 +10,8 @@
     <application
         android:label="chefito"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

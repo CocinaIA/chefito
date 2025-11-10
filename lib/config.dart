@@ -2,10 +2,10 @@ class AppConfig {
   // Set this to your Cloudflare Worker or other proxy endpoint if you prefer not to use Firebase Functions.
   // Example: 'https://chefito-nanonets-worker.your-id.workers.dev'
   // Leave empty unless you've configured the Nanonets proxy route and secrets on your Worker
-  static const String nanonetsProxyUrl = 'https://chefito-nanonets-worker.chefito-ai.workers.dev/nanonets/parse';
+  static const String nanonetsProxyUrl = 'https://chefito-nanonets-worker.chefito.workers.dev/nanonets/parse';
 
   // AI recipes generation endpoint (Cloudflare Worker)
-  static const String recipesAiUrl = 'https://chefito-nanonets-worker.chefito-ai.workers.dev/recipes/generate';
+  static const String recipesAiUrl = 'https://chefito-nanonets-worker.chefito.workers.dev/recipes/generate';
 
   // Use Firestore emulator instead of production (set true for desarrollo sin crear BD en Firebase).
   static const bool useFirestoreEmulator = false; // DESACTIVADO temporalmente - usar producción

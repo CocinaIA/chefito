@@ -77,7 +77,6 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
     setState(() => _loading = true);
     try {
       final aiCandidates = await _ai.parseWithNanonets(imageFile: _image!);
-      // Filtrar ruido administrativo de la salida del AI
       final filtered = ReceiptParser.cleanCandidates(aiCandidates);
       final normalized = IngredientNormalizer.normalize(filtered);
       setState(() {
