@@ -241,37 +241,68 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           ),
                     ),
                     const SizedBox(height: 16),
-                    // Grid 2x2
-                    GridView.count(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: [
-                        _PremiumActionCard(
-                          icon: '📸',
-                          label: 'Reconocer\ningrediente',
-                          isPrimary: true,
-                          onTap: () => Navigator.pushNamed(context, '/reconocer'),
-                        ),
-                        _PremiumActionCard(
-                          icon: '🧾',
-                          label: 'Escanear\nticket',
-                          onTap: () => Navigator.pushNamed(context, '/ticket'),
-                        ),
-                        _PremiumActionCard(
-                          icon: '🗂️',
-                          label: 'Mi\nalacena',
-                          onTap: () => Navigator.pushNamed(context, '/pantry'),
-                        ),
-                        _PremiumActionCard(
-                          icon: '👨‍🍳',
-                          label: 'Recetas\nsugeridas',
-                          isPrimary: true,
-                          onTap: () => Navigator.pushNamed(context, '/recipes'),
-                        ),
-                      ],
+                    // Grid 2x2 responsivo
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final itemWidth = (constraints.maxWidth - 12) / 2;
+                        final itemHeight = itemWidth * 1.3;
+                        
+                        return Column(
+                          children: [
+                            // Primera fila
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                SizedBox(
+                                  width: itemWidth,
+                                  height: itemHeight,
+                                  child: _PremiumActionCard(
+                                    icon: '📸',
+                                    label: 'Reconocer\ningrediente',
+                                    isPrimary: true,
+                                    onTap: () => Navigator.pushNamed(context, '/reconocer'),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: itemWidth,
+                                  height: itemHeight,
+                                  child: _PremiumActionCard(
+                                    icon: '🧾',
+                                    label: 'Escanear\nticket',
+                                    onTap: () => Navigator.pushNamed(context, '/ticket'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            // Segunda fila
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                SizedBox(
+                                  width: itemWidth,
+                                  height: itemHeight,
+                                  child: _PremiumActionCard(
+                                    icon: '🗂️',
+                                    label: 'Mi\nalacena',
+                                    onTap: () => Navigator.pushNamed(context, '/pantry'),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: itemWidth,
+                                  height: itemHeight,
+                                  child: _PremiumActionCard(
+                                    icon: '👨‍🍳',
+                                    label: 'Recetas\nsugeridas',
+                                    isPrimary: true,
+                                    onTap: () => Navigator.pushNamed(context, '/recipes'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -389,19 +420,15 @@ class _PremiumActionCardState extends State<_PremiumActionCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-  late Animation<double> _elevationAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.93).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
-    );
-    _elevationAnimation = Tween<double>(begin: 8, end: 3).animate(
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
     );
   }
@@ -412,83 +439,60 @@ class _PremiumActionCardState extends State<_PremiumActionCard>
     super.dispose();
   }
 
-  void _onTapDown() {
-    _controller.forward();
-  }
-
-  void _onTapUp() {
-    _controller.reverse();
-    widget.onTap();
-  }
-
-  void _onTapCancel() {
-    _controller.reverse();
-  }
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => _onTapDown(),
-      onTapUp: (_) => _onTapUp(),
-      onTapCancel: _onTapCancel,
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) {
+        _controller.reverse();
+        Future.delayed(const Duration(milliseconds: 100), widget.onTap);
+      },
+      onTapCancel: () => _controller.reverse(),
       child: ScaleTransition(
         scale: _scaleAnimation,
-        child: AnimatedBuilder(
-          animation: _elevationAnimation,
-          builder: (context, child) {
-            return Card(
-              elevation: _elevationAnimation.value,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              color: widget.isPrimary
-                  ? AppTheme.primary
-                  : Colors.white,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  border: !widget.isPrimary
-                      ? Border.all(
-                          color: AppTheme.primaryLight.withOpacity(0.4),
-                          width: 1.5,
-                        )
-                      : null,
-                ),
-                child: InkWell(
-                  onTap: () {}, // Ya manejado por GestureDetector
-                  borderRadius: BorderRadius.circular(20),
-                  splashColor: widget.isPrimary
-                      ? Colors.white.withOpacity(0.2)
-                      : AppTheme.primary.withOpacity(0.1),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          widget.icon,
-                          style: const TextStyle(fontSize: 40),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          widget.label,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: widget.isPrimary
-                                ? Colors.white
-                                : AppTheme.foreground,
-                            height: 1.2,
-                          ),
-                        ),
-                      ],
+        child: Card(
+          elevation: 8,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          color: widget.isPrimary ? AppTheme.primary : Colors.white,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: !widget.isPrimary
+                  ? Border.all(
+                      color: AppTheme.primaryLight.withOpacity(0.4),
+                      width: 1.5,
+                    )
+                  : null,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.icon,
+                    style: const TextStyle(fontSize: 44),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: widget.isPrimary
+                          ? Colors.white
+                          : AppTheme.foreground,
+                      height: 1.2,
                     ),
                   ),
-                ),
+                ],
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );
