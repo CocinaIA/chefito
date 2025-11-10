@@ -73,61 +73,203 @@ class _RecipesScreenState extends State<RecipesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Recetas sugeridas'),
+        title: const Text('Recetas Sugeridas'),
+        backgroundColor: AppTheme.background,
         actions: [
           IconButton(
             onPressed: _load,
             icon: const Icon(Icons.refresh),
             tooltip: 'Actualizar',
           ),
-          IconButton(
-            onPressed: (_aiLoading || _pantry.isEmpty) ? null : _generateAI,
-            icon: const Icon(Icons.auto_awesome),
-            tooltip: 'Generar con IA',
-          ),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: AppTheme.primary),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Cargando recetas...',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            )
           : ListView(
+              padding: const EdgeInsets.symmetric(vertical: 16),
               children: [
-                if (_matches.isEmpty)
-                  _Empty(matches: _matches, pantry: _panryPreview()),
-                if (_matches.isNotEmpty) ...[
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text(
-                      'Catálogo',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: AppTheme.foreground,
+                // Botón prominente de IA
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppTheme.primary,
+                          AppTheme.primaryDark,
+                        ],
                       ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.primary.withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: (_aiLoading || _pantry.isEmpty) ? null : _generateAI,
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.auto_awesome,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _aiLoading
+                                          ? 'Generando recetas...'
+                                          : 'Generar con IA',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _pantry.isEmpty
+                                          ? 'Agrega ingredientes primero'
+                                          : 'Crea recetas personalizadas',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (_aiLoading)
+                                const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              else if (_pantry.isNotEmpty)
+                                const Icon(
+                                  Icons.arrow_forward,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Recetas generadas por IA
+                if (_aiRecipes.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.auto_awesome,
+                            color: AppTheme.primary,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Generadas con IA',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 17,
+                            color: AppTheme.foreground,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ..._aiRecipes.map(_aiTile),
+                  const SizedBox(height: 16),
+                ],
+                
+                // Recetas del catálogo
+                if (_matches.isEmpty && _aiRecipes.isEmpty)
+                  _Empty(matches: _matches, pantry: _panryPreview()),
+                  
+                if (_matches.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryLight.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.restaurant_menu,
+                            color: AppTheme.primary,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Del catálogo',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 17,
+                            color: AppTheme.foreground,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   ..._matches.map(_matchTile),
                 ],
-                if (_aiLoading)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
-                  ),
-                if (_aiRecipes.isNotEmpty) ...[
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text(
-                      'IA (generadas)',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                  ),
-                  ..._aiRecipes.map(_aiTile),
-                ],
-                const SizedBox(height: 16),
+                
+                const SizedBox(height: 24),
               ],
             ),
     );

@@ -35,6 +35,9 @@ class ReceiptAIService {
 
   /// Call a generic proxy endpoint (e.g., Cloudflare Worker/Vercel) that wraps Nanonets.
   /// Endpoint must accept JSON { imageUrl?: string, imageBase64?: string } and return { ingredients: string[] }.
+  /// 
+  /// IMPORTANTE: Nanonets procesa todo automáticamente (auto-approval). 
+  /// No necesitamos esperar revisión humana - tomamos los datos que devuelve inmediatamente.
   Future<Map<String, dynamic>> parseWithProxy({String? endpoint, String? imageUrl, File? imageFile}) async {
     final url = endpoint ?? AppConfig.nanonetsProxyUrl;
     if (url.isEmpty) {
@@ -61,23 +64,11 @@ class ReceiptAIService {
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
     final list = (data['ingredients'] as List?)?.map((e) => e.toString()).toList() ?? const <String>[];
     
-    // Check if the response indicates pending human review
-    final raw = data['raw'] as Map<String, dynamic>?;
-    final results = raw?['result'] as List?;
-    bool needsReview = false;
-    
-    if (results != null && results.isNotEmpty) {
-      for (var r in results) {
-        if (r is Map && r['message']?.toString().toLowerCase().contains('pending') == true) {
-          needsReview = true;
-          break;
-        }
-      }
-    }
-    
+    // Siempre aceptamos los ingredientes que devuelve Nanonets
+    // El modelo está configurado con auto-approval, así que los datos ya están validados
     return {
       'ingredients': list.cast<String>(),
-      'needsReview': needsReview,
+      'count': list.length,
       'isEmpty': list.isEmpty,
     };
   }
