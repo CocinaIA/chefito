@@ -9,6 +9,7 @@ import '../services/ingredient_normalizer.dart';
 import '../services/pantry_repository.dart';
 import '../services/receipt_ai_service.dart';
 import '../config.dart';
+import '../theme.dart';
 
 class ReceiptScannerScreen extends StatefulWidget {
   const ReceiptScannerScreen({super.key});
@@ -150,82 +151,272 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Escanear ticket')),
+      backgroundColor: AppTheme.background,
+      appBar: AppBar(
+        title: const Text(
+          'Escanear ticket',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        elevation: 0,
+      ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _pickImage,
-        icon: const Icon(Icons.receipt_long),
-        label: const Text('Escanear'),
+        backgroundColor: AppTheme.primary,
+        onPressed: _loading ? null : _pickImage,
+        icon: const Icon(Icons.receipt_long_rounded, color: Colors.white),
+        label: const Text(
+          'Escanear',
+          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
+        ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(color: AppTheme.primary),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Procesando ticket...',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                  ),
+                ],
+              ),
+            )
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_image != null)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(_image!, height: 200, fit: BoxFit.cover),
+                  // Banner de instrucciones
+                  if (_image == null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.primary.withOpacity(0.1),
+                            AppTheme.primaryLight.withOpacity(0.05),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppTheme.primary.withOpacity(0.2),
+                          width: 2,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            '🧾',
+                            style: TextStyle(fontSize: 44),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Escanea tus compras',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: AppTheme.foreground,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Captura una foto del ticket y extrae automáticamente todos los ingredientes',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppTheme.textSecondary,
+                                ),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                const Text('💡', style: TextStyle(fontSize: 18)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Para mejores resultados, asegúrate de que el ticket sea legible',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  const SizedBox(height: 16),
+
+                  if (_image != null) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      'Ticket capturado',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: AppTheme.foreground,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        _image!,
+                        height: 240,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ],
+
                   if (_normalized.isNotEmpty) ...[
+                    const SizedBox(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Ingredientes detectados',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        TextButton.icon(
-                          onPressed: _savePantry,
-                          icon: const Icon(Icons.save),
-                          label: const Text('Guardar'),
+                        Text(
+                          'Ingredientes detectados',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: AppTheme.foreground,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${_normalized.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: _normalized
-                          .map((e) => Chip(label: Text(e)))
+                          .map((e) => Chip(
+                                label: Text(
+                                  e,
+                                  style: const TextStyle(
+                                    color: AppTheme.foreground,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                backgroundColor: AppTheme.primaryLight.withOpacity(0.2),
+                                side: BorderSide(
+                                  color: AppTheme.primaryLight.withOpacity(0.4),
+                                ),
+                              ))
                           .toList(),
                     ),
-                  ] else if (_candidates.isNotEmpty) ...[
-                    const Text('Candidatos (antes de normalizar):',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    ..._candidates.map((e) => Text('• $e')),
-                  ] else ...[
-                    const Text('Toma una foto del ticket para extraer los ingredientes.'),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: _savePantry,
+                        icon: const Icon(Icons.check_circle_rounded),
+                        label: const Text(
+                          'Guardar en mi alacena',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ] else if (_candidates.isNotEmpty && _normalized.isEmpty) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.orange.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '⚠️ Candidatos detectados (requieren validación)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.foreground,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ..._candidates
+                              .map((e) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      '• $e',
+                                      style: const TextStyle(
+                                        color: AppTheme.textSecondary,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ))
+                              .toList(),
+                        ],
+                      ),
+                    ),
                   ],
-                  const SizedBox(height: 16),
-                  if (_image != null)
+
+                  if (_image != null && _normalized.isEmpty) ...[
+                    const SizedBox(height: 16),
                     Wrap(
-                      spacing: 12,
+                      spacing: 8,
                       runSpacing: 8,
                       children: [
                         ElevatedButton.icon(
                           onPressed: _runNanonets,
-                          icon: const Icon(Icons.cloud),
-                          label: const Text('Usar Nanonets (Function)'),
+                          icon: const Icon(Icons.cloud_rounded),
+                          label: const Text('Usar IA'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primary,
+                            foregroundColor: Colors.white,
+                          ),
                         ),
                         if (AppConfig.nanonetsProxyUrl.isNotEmpty)
                           ElevatedButton.icon(
                             onPressed: _runProxy,
-                            icon: const Icon(Icons.cloud_queue),
-                            label: const Text('Usar Nanonets (Proxy)'),
+                            icon: const Icon(Icons.cloud_queue_rounded),
+                            label: const Text('Nanonets'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primary.withOpacity(0.7),
+                              foregroundColor: Colors.white,
+                            ),
                           ),
                       ],
                     ),
-                  const SizedBox(height: 24),
-                  if (_rawText.isNotEmpty) ...[
-                    const Text('Texto OCR (depuración):',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Text(
-                      _rawText,
-                      style: const TextStyle(color: Colors.black54),
-                    ),
                   ],
+
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
