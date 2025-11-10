@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'ingredient_recognizer.dart';
 import 'screens/receipt_scanner_screen.dart';
 import 'screens/pantry_screen.dart';
 import 'screens/recipes_screen.dart';
 import 'config.dart';
+import 'theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +18,19 @@ void main() async {
   
   debugPrint('🔥 Firebase initialized');
   debugPrint('🔥 useFirestoreEmulator: ${AppConfig.useFirestoreEmulator}');
+  // Ensure the app is authenticated for Firestore access during development.
+  // This signs in anonymously if there is no user yet so Firestore rules
+  // that require authentication will pass. It's safe for local/dev usage.
+  try {
+    if (FirebaseAuth.instance.currentUser == null) {
+      final cred = await FirebaseAuth.instance.signInAnonymously();
+      debugPrint('🔑 Signed in anonymously: ${cred.user?.uid}');
+    } else {
+      debugPrint('🔑 Already signed in: ${FirebaseAuth.instance.currentUser?.uid}');
+    }
+  } catch (e) {
+    debugPrint('❌ Anonymous sign-in failed: $e');
+  }
   
   if (AppConfig.useFirestoreEmulator) {
     debugPrint('🔥 Connecting to Firestore emulator at ${AppConfig.firestoreEmulatorHost}:${AppConfig.firestoreEmulatorPort}');
@@ -34,12 +49,11 @@ class ChefitoApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-
       debugShowCheckedModeBanner: false,
       title: 'Chefito',
-      theme: ThemeData(primarySwatch: Colors.green),
+      theme: AppTheme.lightTheme,
       home: const HomeScreen(),
-      routes:  {
+      routes: {
         '/reconocer': (context) => const IngredientRecognizer(),
         '/ticket': (context) => const ReceiptScannerScreen(),
         '/pantry': (context) => const PantryScreen(),
@@ -69,7 +83,16 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Chefito 🧑‍🍳")),
+      appBar: AppBar(
+        title: const Text(
+          "LetMeCook",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
+        centerTitle: false,
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

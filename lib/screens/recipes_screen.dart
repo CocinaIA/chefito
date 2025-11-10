@@ -4,6 +4,7 @@ import '../services/pantry_repository.dart';
 import '../services/ingredient_normalizer.dart';
 import '../services/recipe_recommender.dart';
 import '../services/recipe_ai_service.dart';
+import '../theme.dart';
 
 class RecipesScreen extends StatefulWidget {
   const RecipesScreen({super.key});
@@ -41,7 +42,14 @@ class _RecipesScreenState extends State<RecipesScreen> {
   }
 
   Future<void> _generateAI() async {
-    if (_pantry.isEmpty) return;
+    if (_pantry.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('La alacena está vacía. Escanea un ticket o agrega ingredientes antes de generar.')),
+        );
+      }
+      return;
+    }
     setState(() => _aiLoading = true);
     try {
       final out = await _ai.generate(ingredients: _pantry, max: 5);
@@ -74,7 +82,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
             tooltip: 'Actualizar',
           ),
           IconButton(
-            onPressed: _aiLoading ? null : _generateAI,
+            onPressed: (_aiLoading || _pantry.isEmpty) ? null : _generateAI,
             icon: const Icon(Icons.auto_awesome),
             tooltip: 'Generar con IA',
           ),
@@ -89,19 +97,33 @@ class _RecipesScreenState extends State<RecipesScreen> {
                 if (_matches.isNotEmpty) ...[
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text('Catálogo', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(
+                      'Catálogo',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppTheme.foreground,
+                      ),
+                    ),
                   ),
                   ..._matches.map(_matchTile),
                 ],
                 if (_aiLoading)
                   const Padding(
                     padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
+                    child: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
                   ),
                 if (_aiRecipes.isNotEmpty) ...[
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text('IA (generadas)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(
+                      'IA (generadas)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppTheme.primary,
+                      ),
+                    ),
                   ),
                   ..._aiRecipes.map(_aiTile),
                 ],
@@ -121,34 +143,73 @@ class _RecipesScreenState extends State<RecipesScreen> {
   String _panryPreview() => _pantry.take(8).join(', ');
 
   Widget _matchTile(RecipeMatch m) {
-    return ExpansionTile(
-      leading: CircleAvatar(
-        backgroundColor: Colors.green.shade100,
-        child: Text('${(m.score * 100).round()}%'),
-      ),
-      title: Text(m.recipe.name),
-      subtitle: Text(_subtitle(m)),
-      childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      children: [
-        if (m.used.isNotEmpty)
-          _ChipsRow(label: 'Usas', items: m.used, color: Colors.green.shade50),
-        if (m.missing.isNotEmpty)
-          _ChipsRow(label: 'Te falta', items: m.missing, color: Colors.orange.shade50),
-        if (m.recipe.steps.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Pasos', style: TextStyle(fontWeight: FontWeight.bold)),
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ExpansionTile(
+        leading: CircleAvatar(
+          backgroundColor: AppTheme.primaryLight,
+          child: Text(
+            '${(m.score * 100).round()}%',
+            style: const TextStyle(
+              color: AppTheme.foreground,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
           ),
-          const SizedBox(height: 4),
-          ...m.recipe.steps.map((s) => ListTile(
-                dense: true,
-                leading: const Icon(Icons.check, size: 18),
-                title: Text(s),
-              )),
+        ),
+        title: Text(
+          m.recipe.name,
+          style: const TextStyle(
+            color: AppTheme.foreground,
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+        ),
+        subtitle: Text(
+          _subtitle(m),
+          style: const TextStyle(
+            color: AppTheme.textSecondary,
+            fontSize: 13,
+          ),
+        ),
+        collapsedBackgroundColor: AppTheme.primaryLight.withOpacity(0.05),
+        backgroundColor: AppTheme.primaryLight.withOpacity(0.05),
+        iconColor: AppTheme.primary,
+        collapsedIconColor: AppTheme.primary,
+        childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        children: [
+          if (m.used.isNotEmpty)
+            _ChipsRow(label: 'Usas', items: m.used, color: Colors.green.shade100),
+          if (m.missing.isNotEmpty)
+            _ChipsRow(label: 'Te falta', items: m.missing, color: Colors.orange.shade100),
+          if (m.recipe.steps.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Pasos',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.foreground,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...m.recipe.steps.map((s) => ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.check_circle, size: 18, color: AppTheme.primary),
+                  title: Text(
+                    s,
+                    style: const TextStyle(color: AppTheme.foreground, fontSize: 14),
+                  ),
+                )),
+          ],
+          const SizedBox(height: 8),
         ],
-        const SizedBox(height: 8),
-      ],
+      ),
     );
   }
 
@@ -157,31 +218,63 @@ class _RecipesScreenState extends State<RecipesScreen> {
     final used = ((r['used'] as List?) ?? []).cast<String>();
     final missing = ((r['missing'] as List?) ?? []).cast<String>();
     final steps = ((r['steps'] as List?) ?? []).cast<String>();
-    return ExpansionTile(
-      leading: const Icon(Icons.auto_awesome, color: Colors.deepPurple),
-      title: Text(title),
-      subtitle: Text('${used.length} usados • ${missing.isEmpty ? 'completa' : 'faltan ${missing.length}'}'),
-      childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      children: [
-        if (used.isNotEmpty)
-          _ChipsRow(label: 'Usas', items: used, color: Colors.blue.shade50),
-        if (missing.isNotEmpty)
-          _ChipsRow(label: 'Te falta', items: missing, color: Colors.orange.shade50),
-        if (steps.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Pasos', style: TextStyle(fontWeight: FontWeight.bold)),
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ExpansionTile(
+        leading: const Icon(Icons.auto_awesome, color: AppTheme.primary, size: 24),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: AppTheme.foreground,
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
           ),
-          const SizedBox(height: 4),
-          ...steps.map((s) => ListTile(
-                dense: true,
-                leading: const Icon(Icons.check, size: 18),
-                title: Text(s),
-              )),
+        ),
+        subtitle: Text(
+          '${used.length} usados • ${missing.isEmpty ? 'completa' : 'faltan ${missing.length}'}',
+          style: const TextStyle(
+            color: AppTheme.textSecondary,
+            fontSize: 13,
+          ),
+        ),
+        collapsedBackgroundColor: AppTheme.primaryLight.withOpacity(0.05),
+        backgroundColor: AppTheme.primaryLight.withOpacity(0.05),
+        iconColor: AppTheme.primary,
+        collapsedIconColor: AppTheme.primary,
+        childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        children: [
+          if (used.isNotEmpty)
+            _ChipsRow(label: 'Usas', items: used, color: Colors.blue.shade100),
+          if (missing.isNotEmpty)
+            _ChipsRow(label: 'Te falta', items: missing, color: Colors.orange.shade100),
+          if (steps.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Pasos',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.foreground,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...steps.map((s) => ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.check_circle, size: 18, color: AppTheme.primary),
+                  title: Text(
+                    s,
+                    style: const TextStyle(color: AppTheme.foreground, fontSize: 14),
+                  ),
+                )),
+          ],
+          const SizedBox(height: 8),
         ],
-        const SizedBox(height: 8),
-      ],
+      ),
     );
   }
 }
@@ -197,14 +290,34 @@ class _ChipsRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: items.map((e) => Chip(label: Text(e), backgroundColor: color)).toList(),
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppTheme.foreground,
+            fontSize: 13,
+          ),
         ),
         const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: items
+              .map((e) => Chip(
+                    label: Text(
+                      e,
+                      style: const TextStyle(
+                        color: AppTheme.foreground,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    backgroundColor: color,
+                    side: BorderSide.none,
+                  ))
+              .toList(),
+        ),
+        const SizedBox(height: 12),
       ],
     );
   }
@@ -223,16 +336,26 @@ class _Empty extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.fastfood, size: 64, color: Colors.black26),
-            const SizedBox(height: 12),
-            const Text('Aún no hay recetas coincidentes'),
-            const SizedBox(height: 4),
+            const Icon(Icons.fastfood, size: 64, color: AppTheme.primaryLight),
+            const SizedBox(height: 16),
+            Text(
+              'Aún no hay recetas coincidentes',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: AppTheme.foreground,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
             Text(
               pantry.isEmpty
                   ? 'Tu alacena está vacía. Escanea un ticket o agrega ingredientes.'
                   : 'Con tu alacena: $pantry',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.black54),
+              style: const TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 14,
+                height: 1.5,
+              ),
             ),
           ],
         ),
