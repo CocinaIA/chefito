@@ -163,29 +163,33 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Escanear Ticket'),
-        backgroundColor: AppTheme.background,
-        actions: [
-          IconButton(
-            onPressed: _pickImage,
-            icon: const Icon(Icons.camera_alt),
-            tooltip: 'Tomar otra foto',
-          ),
-        ],
+        title: const Text(
+          'Escanear ticket',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        elevation: 0,
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppTheme.primary,
+        onPressed: _loading ? null : _pickImage,
+        icon: const Icon(Icons.receipt_long_rounded, color: Colors.white),
+        label: const Text(
+          'Escanear',
+          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
+        ),
       ),
       body: _loading
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: AppTheme.primary),
+                  const CircularProgressIndicator(color: AppTheme.primary),
                   const SizedBox(height: 16),
                   Text(
-                    'Analizando ticket...',
-                    style: TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 14,
-                    ),
+                    'Procesando ticket...',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
                   ),
                 ],
               ),
@@ -195,199 +199,233 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Imagen del ticket
-                  if (_image != null)
+                  // Banner de instrucciones
+                  if (_image == null)
                     Container(
                       width: double.infinity,
+                      padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.primary.withOpacity(0.1),
+                            AppTheme.primaryLight.withOpacity(0.05),
+                          ],
+                        ),
                         borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
+                        border: Border.all(
+                          color: AppTheme.primary.withOpacity(0.2),
+                          width: 2,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            '🧾',
+                            style: TextStyle(fontSize: 44),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Escanea tus compras',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: AppTheme.foreground,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Captura una foto del ticket y extrae automáticamente todos los ingredientes',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppTheme.textSecondary,
+                                ),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                const Text('💡', style: TextStyle(fontSize: 18)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Para mejores resultados, asegúrate de que el ticket sea legible',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.file(
-                          _image!,
-                          height: 220,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
+                    ),
+
+                  if (_image != null) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      'Ticket capturado',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: AppTheme.foreground,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        _image!,
+                        height: 240,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
                       ),
                     ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Resultados
+                  ],
+
                   if (_normalized.isNotEmpty) ...[
+                    const SizedBox(height: 24),
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.check_circle,
-                            color: AppTheme.primary,
-                            size: 20,
-                          ),
+                        Text(
+                          'Ingredientes detectados',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: AppTheme.foreground,
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Ingredientes detectados',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.foreground,
-                                ),
-                              ),
-                              Text(
-                                '${_normalized.length} encontrados',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${_normalized.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    
-                    // Chips de ingredientes
+                    const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: _normalized.map((ingredient) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryLight.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: AppTheme.primary.withOpacity(0.3),
-                            ),
-                          ),
-                          child: Text(
-                            ingredient,
-                            style: TextStyle(
-                              color: AppTheme.foreground,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                      children: _normalized
+                          .map((e) => Chip(
+                                label: Text(
+                                  e,
+                                  style: const TextStyle(
+                                    color: AppTheme.foreground,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                backgroundColor: AppTheme.primaryLight.withOpacity(0.2),
+                                side: BorderSide(
+                                  color: AppTheme.primaryLight.withOpacity(0.4),
+                                ),
+                              ))
+                          .toList(),
                     ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Botón de guardar
+                    const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
+                      height: 48,
                       child: ElevatedButton.icon(
                         onPressed: _savePantry,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 2,
-                        ),
-                        icon: const Icon(Icons.save, size: 20),
+                        icon: const Icon(Icons.check_circle_rounded),
                         label: const Text(
-                          'Guardar en Mi Alacena',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                          'Guardar en mi alacena',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                       ),
                     ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Botón de escaneo avanzado
-                    if (AppConfig.nanonetsProxyUrl.isNotEmpty)
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _advancedLoading ? null : _runProxy,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.primary,
-                            side: BorderSide(color: AppTheme.primary.withOpacity(0.5)),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          icon: _advancedLoading
-                              ? SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppTheme.primary,
-                                  ),
-                                )
-                              : const Icon(Icons.auto_awesome, size: 18),
-                          label: Text(
-                            _advancedLoading
-                                ? 'Analizando con IA...'
-                                : 'Escaneo Avanzado (IA)',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                  ] else if (_candidates.isNotEmpty && _normalized.isEmpty) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.orange.withOpacity(0.3),
                         ),
                       ),
-                  ] else if (_image != null) ...[
-                    Center(
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 48,
-                            color: AppTheme.textSecondary.withOpacity(0.5),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No se detectaron ingredientes',
+                          const Text(
+                            '⚠️ Candidatos detectados (requieren validación)',
                             style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textSecondary,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.foreground,
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            'Intenta con otra foto más clara',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppTheme.textSecondary.withOpacity(0.7),
-                            ),
-                          ),
+                          ..._candidates
+                              .map((e) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      '• $e',
+                                      style: const TextStyle(
+                                        color: AppTheme.textSecondary,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ))
+                              .toList(),
                         ],
                       ),
                     ),
                   ],
+
+                  if (_image != null && _normalized.isEmpty) ...[
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _runNanonets,
+                          icon: const Icon(Icons.cloud_rounded),
+                          label: const Text('Usar IA'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                        if (AppConfig.nanonetsProxyUrl.isNotEmpty)
+                          ElevatedButton.icon(
+                            onPressed: _runProxy,
+                            icon: const Icon(Icons.cloud_queue_rounded),
+                            label: const Text('Nanonets'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primary.withOpacity(0.7),
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
