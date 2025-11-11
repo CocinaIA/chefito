@@ -138,254 +138,274 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   ),
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Logo y título
-                      Row(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 600),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Center(
-                              child: Text('🍳', style: TextStyle(fontSize: 28)),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'LetMeCook',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .displaySmall
-                                      ?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: -0.5,
-                                      ),
+                          // Logo y título
+                          Row(
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Tu asistente culinario',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: Colors.white.withOpacity(0.85),
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                child: const Center(
+                                  child: Text('🍳', style: TextStyle(fontSize: 28)),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'LetMeCook',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .displaySmall
+                                          ?.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: -0.5,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Tu asistente culinario',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: Colors.white.withOpacity(0.85),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          // Descripción inspiradora
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.2),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Text(
+                                  '✨',
+                                  style: TextStyle(fontSize: 20),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Transforma ingredientes en recetas deliciosas',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w500,
+                                          height: 1.4,
+                                        ),
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
-                      // Descripción inspiradora
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.2),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Text(
-                              '✨',
-                              style: TextStyle(fontSize: 20),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Transforma ingredientes en recetas deliciosas',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w500,
-                                      height: 1.4,
-                                    ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
 
               // Main Actions Grid
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Comienza aquí',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: AppTheme.foreground,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Grid 2x2 responsivo
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final itemWidth = (constraints.maxWidth - 12) / 2;
-                        final itemHeight = itemWidth * 1.3;
-                        
-                        return Column(
-                          children: [
-                            // Primera fila
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Comienza aquí',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                color: AppTheme.foreground,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Grid 2x2 adaptativo
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final itemWidth = (constraints.maxWidth - 12) / 2;
+                            final itemHeight = itemWidth * 1.3;
+                            
+                            return Column(
                               children: [
-                                SizedBox(
-                                  width: itemWidth,
-                                  height: itemHeight,
-                                  child: _PremiumActionCard(
-                                    icon: '📸',
-                                    label: 'Reconocer\ningrediente',
-                                    isPrimary: true,
-                                    onTap: () => Navigator.pushNamed(context, '/reconocer'),
-                                  ),
+                                // Primera fila
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    SizedBox(
+                                      width: itemWidth,
+                                      height: itemHeight,
+                                      child: _PremiumActionCard(
+                                        icon: '📸',
+                                        label: 'Reconocer\ningrediente',
+                                        isPrimary: true,
+                                        onTap: () => Navigator.pushNamed(context, '/reconocer'),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: itemWidth,
+                                      height: itemHeight,
+                                      child: _PremiumActionCard(
+                                        icon: '🧾',
+                                        label: 'Escanear\nfactura',
+                                        onTap: () => Navigator.pushNamed(context, '/ticket'),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                SizedBox(
-                                  width: itemWidth,
-                                  height: itemHeight,
-                                  child: _PremiumActionCard(
-                                    icon: '🧾',
-                                    label: 'Escanear\nticket',
-                                    onTap: () => Navigator.pushNamed(context, '/ticket'),
-                                  ),
+                                const SizedBox(height: 12),
+                                // Segunda fila
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    SizedBox(
+                                      width: itemWidth,
+                                      height: itemHeight,
+                                      child: _PremiumActionCard(
+                                        icon: '🗂️',
+                                        label: 'Mi\nalacena',
+                                        onTap: () => Navigator.pushNamed(context, '/pantry'),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: itemWidth,
+                                      height: itemHeight,
+                                      child: _PremiumActionCard(
+                                        icon: '👨‍🍳',
+                                        label: 'Recetas\nsugeridas',
+                                        isPrimary: true,
+                                        onTap: () => Navigator.pushNamed(context, '/recipes'),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
-                            ),
-                            const SizedBox(height: 12),
-                            // Segunda fila
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                SizedBox(
-                                  width: itemWidth,
-                                  height: itemHeight,
-                                  child: _PremiumActionCard(
-                                    icon: '🗂️',
-                                    label: 'Mi\nalacena',
-                                    onTap: () => Navigator.pushNamed(context, '/pantry'),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: itemWidth,
-                                  height: itemHeight,
-                                  child: _PremiumActionCard(
-                                    icon: '👨‍🍳',
-                                    label: 'Recetas\nsugeridas',
-                                    isPrimary: true,
-                                    onTap: () => Navigator.pushNamed(context, '/recipes'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        );
-                      },
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
 
               // Features Section
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    Text(
-                      'Características',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: AppTheme.foreground,
-                            fontWeight: FontWeight.w700,
-                          ),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 8),
+                        Text(
+                          'Características',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                color: AppTheme.foreground,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                        const SizedBox(height: 16),
+                        _FeatureRow(
+                          icon: Icons.camera_alt_outlined,
+                          title: 'Reconocimiento Visual',
+                          description: 'Identifica ingredientes con tu cámara',
+                        ),
+                        const SizedBox(height: 12),
+                        _FeatureRow(
+                          icon: Icons.receipt_long_outlined,
+                          title: 'Escaneo de Facturas',
+                          description: 'Extrae ingredientes automáticamente',
+                        ),
+                        const SizedBox(height: 12),
+                        _FeatureRow(
+                          icon: Icons.auto_awesome_outlined,
+                          title: 'IA Generativa',
+                          description: 'Crea recetas personalizadas con IA',
+                        ),
+                        const SizedBox(height: 12),
+                        _FeatureRow(
+                          icon: Icons.restaurant_outlined,
+                          title: 'Catálogo de Recetas',
+                          description: 'Explora miles de opciones culinarias',
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    _FeatureRow(
-                      icon: Icons.camera_alt_outlined,
-                      title: 'Reconocimiento Visual',
-                      description: 'Identifica ingredientes con tu cámara',
-                    ),
-                    const SizedBox(height: 12),
-                    _FeatureRow(
-                      icon: Icons.receipt_long_outlined,
-                      title: 'Escaneo de Tickets',
-                      description: 'Extrae ingredientes automáticamente',
-                    ),
-                    const SizedBox(height: 12),
-                    _FeatureRow(
-                      icon: Icons.auto_awesome_outlined,
-                      title: 'IA Generativa',
-                      description: 'Crea recetas personalizadas con IA',
-                    ),
-                    const SizedBox(height: 12),
-                    _FeatureRow(
-                      icon: Icons.restaurant_outlined,
-                      title: 'Catálogo de Recetas',
-                      description: 'Explora miles de opciones culinarias',
-                    ),
-                  ],
+                  ),
                 ),
               ),
 
               // Call to Action
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppTheme.primaryLight.withOpacity(0.3),
-                        AppTheme.primaryLight.withOpacity(0.1),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppTheme.primary.withOpacity(0.2),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        '🚀 ¿Listo para cocinar?',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: AppTheme.foreground,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Comienza agregando tus ingredientes disponibles',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppTheme.textSecondary,
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.primaryLight.withOpacity(0.3),
+                            AppTheme.primaryLight.withOpacity(0.1),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppTheme.primary.withOpacity(0.2),
                         ),
                       ),
-                    ],
+                      child: Column(
+                        children: [
+                          Text(
+                            '🚀 ¿Listo para cocinar?',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: AppTheme.foreground,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Comienza agregando tus ingredientes disponibles',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),

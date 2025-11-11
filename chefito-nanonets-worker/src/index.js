@@ -84,17 +84,19 @@ async function handleGenerateRecipes(request, env) {
 	}
 
 	// Prompt con contrato JSON (mensaje único para mayor compatibilidad)
-	const prompt = `Eres un asistente culinario.
-Responde SOLO con JSON válido exactamente con esta estructura:
+	const prompt = `You are a culinary assistant. Respond ONLY with valid JSON.
+DO NOT use code fences (backticks), DO NOT wrap in markdown, just raw JSON.
+JSON structure MUST be exactly:
 {"recipes":[{"title":"string","used":["string"],"missing":["string"],"steps":["string"]}]}
-Reglas:
-- Máximo ${max} recetas.
-- Maximiza uso de ingredientes disponibles.
-- Usa términos simples y pasos breves.
-- No incluyas marcas.
-Ingredientes disponibles: ${ingredients.join(', ')}
-Preferencias: ${JSON.stringify(prefs)}
-Devuelve SOLO JSON siguiendo el esquema. Nada de texto adicional.`;
+Rules:
+- Maximum ${max} recipes
+- Maximize use of available ingredients  
+- Use simple terms and brief steps
+- No brand names
+- Each recipe must have at least 2 steps and 1 used ingredient
+Available ingredients: ${ingredients.join(', ')}
+Preferences: ${JSON.stringify(prefs)}
+Respond with ONLY the JSON object. Nothing else. No markdown. No code fences.`;
 
 	// Build request payload once
 	const payload = {
@@ -165,20 +167,27 @@ Devuelve SOLO JSON siguiendo el esquema. Nada de texto adicional.`;
 
 	let parsed;
 	try {
-		// Prefer code-fence extraction if present
-		const m = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-		let candidate = m ? m[1] : text;
-		// Normalize smart quotes and remove trailing commas
+		// Step 1: Try to extract JSON from code fences (markdown style)
+		const codeFenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+		let candidate = codeFenceMatch ? codeFenceMatch[1] : text;
+		
+		// Step 2: Normalize special characters
 		candidate = candidate
-			.replace(/[\u201C\u201D]/g, '"')
+			.replace(/[\u201C\u201D]/g, '"')  // Smart quotes
 			.replace(/[\u2018\u2019]/g, "'")
-			.replace(/,\s*([}\]])/g, '$1');
+			.replace(/,\s*([}\]])/g, '$1');    // Trailing commas
+		
+		// Step 3: Try direct parse
 		parsed = JSON.parse(candidate);
 	} catch (e) {
-		// Fallback: attempt to extract the longest balanced JSON object
-		const extractBalancedTop = (s) => {
+		console.log('Direct JSON parse failed, attempting extraction', { error: e.message });
+		
+		// Fallback: Try to extract the most complete balanced JSON object
+		const extractBalancedJSON = (s) => {
+			// Find first {
 			const start = s.indexOf('{');
 			if (start === -1) return null;
+			
 			let depth = 0, inStr = false, esc = false;
 			for (let i = start; i < s.length; i++) {
 				const ch = s[i];
@@ -189,60 +198,105 @@ Devuelve SOLO JSON siguiendo el esquema. Nada de texto adicional.`;
 				} else {
 					if (ch === '"') inStr = true;
 					else if (ch === '{') depth++;
-					else if (ch === '}') { depth--; if (depth === 0) return s.slice(start, i + 1); }
+					else if (ch === '}') { 
+						depth--; 
+						if (depth === 0) return s.slice(start, i + 1); 
+					}
 				}
 			}
 			return null;
 		};
 
-		let candidate = extractBalancedTop(text) || (text.match(/\{[\s\S]*\}/)?.[0] ?? null);
-		if (!candidate) {
-			// Advanced fallback: collect inner balanced objects (e.g., individual recipes) and wrap them
+		let balanced = extractBalancedJSON(text);
+		if (balanced) {
+			try {
+				balanced = balanced.replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'").replace(/,\s*([}\]])/g, '$1');
+				parsed = JSON.parse(balanced);
+			} catch (e2) {
+				console.log('Balanced extraction failed', { error: e2.message });
+				balanced = null;
+			}
+		}
+
+		// If still no parsed object, try collecting individual recipe objects
+		if (!parsed) {
+			console.log('Attempting to extract individual recipe objects');
 			const objects = [];
 			let inStr = false, esc = false, depth = 0, startIdx = -1;
+			
 			for (let i = 0; i < text.length; i++) {
 				const ch = text[i];
 				if (inStr) {
-					if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false;
+					if (esc) esc = false; 
+					else if (ch === '\\') esc = true; 
+					else if (ch === '"') inStr = false;
 				} else {
 					if (ch === '"') inStr = true;
-					else if (ch === '{') { if (depth === 0) startIdx = i; depth++; }
-					else if (ch === '}') { depth--; if (depth === 0 && startIdx !== -1) { objects.push(text.slice(startIdx, i + 1)); startIdx = -1; } }
+					else if (ch === '{') { 
+						if (depth === 0) startIdx = i; 
+						depth++; 
+					}
+					else if (ch === '}') { 
+						depth--; 
+						if (depth === 0 && startIdx !== -1) { 
+							objects.push(text.slice(startIdx, i + 1)); 
+							startIdx = -1; 
+						} 
+					}
 				}
 			}
+
 			if (objects.length) {
+				console.log(`Found ${objects.length} potential recipe objects`);
 				const parsedObjects = [];
 				for (const objStr of objects) {
-					try { parsedObjects.push(JSON.parse(objStr)); } catch {}
+					try { 
+						const normalized = objStr.replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'").replace(/,\s*([}\]])/g, '$1');
+						const obj = JSON.parse(normalized); 
+						parsedObjects.push(obj);
+					} catch (e3) {
+						// Skip objects that don't parse
+						console.log('Skipping unparseable object');
+					}
 				}
+
 				if (parsedObjects.length) {
-					parsed = { recipes: parsedObjects.map(o => ({
-						title: String(o.title || o.name || '').trim(),
-						used: Array.isArray(o.used) ? o.used : [],
-						missing: Array.isArray(o.missing) ? o.missing : [],
-						steps: Array.isArray(o.steps) ? o.steps : (Array.isArray(o.instructions) ? o.instructions : []),
-					})).slice(0, max) };
+					console.log(`Successfully parsed ${parsedObjects.length} recipe objects`);
+					parsed = { 
+						recipes: parsedObjects
+							.map(o => ({
+								title: String(o.title || o.name || '').trim() || 'Receta sin nombre',
+								used: Array.isArray(o.used) ? o.used.map(String).filter(s => s.trim()) : [],
+								missing: Array.isArray(o.missing) ? o.missing.map(String).filter(s => s.trim()) : [],
+								steps: Array.isArray(o.steps) ? o.steps.map(String).filter(s => s.trim()) : (Array.isArray(o.instructions) ? o.instructions.map(String).filter(s => s.trim()) : []),
+							}))
+							.filter(r => r.title && (r.used.length > 0 || r.steps.length > 0))  // Only valid recipes
+							.slice(0, max) 
+					};
 				}
 			}
 		}
+
+		// Last resort: if nothing worked, return error with raw text for debugging
 		if (!parsed) {
-			candidate = (candidate || '').replace(/,\s*([}\]])/g, '$1');
-			try { parsed = JSON.parse(candidate); } catch (e2) {
-				return json({ error: 'Invalid JSON from model', raw: text }, 502);
-			}
+			console.log('All parsing attempts failed');
+			return json({ error: 'Invalid JSON from model', raw: text.slice(0, 1000) }, 502);
 		}
 	}
 
-	// Basic validation
+	// Final validation and normalization
 	const recipes = Array.isArray(parsed.recipes) ? parsed.recipes : [];
 	for (const r of recipes) {
-		r.title = String(r.title || '').trim();
-		r.used = Array.isArray(r.used) ? r.used.map(String) : [];
-		r.missing = Array.isArray(r.missing) ? r.missing.map(String) : [];
-		r.steps = Array.isArray(r.steps) ? r.steps.map(String) : [];
+		r.title = String(r.title || '').trim() || 'Receta';
+		r.used = Array.isArray(r.used) ? r.used.map(String).filter(s => s.trim()) : [];
+		r.missing = Array.isArray(r.missing) ? r.missing.map(String).filter(s => s.trim()) : [];
+		r.steps = Array.isArray(r.steps) ? r.steps.map(String).filter(s => s.trim()) : [];
 	}
 
-	return json({ recipes });
+	// Remove duplicates and filter empty recipes
+	const validRecipes = recipes.filter(r => r.title && (r.used.length > 0 || r.steps.length > 0)).slice(0, max);
+	
+	return json({ recipes: validRecipes });
 }
 
 async function handleListModels(env) {
