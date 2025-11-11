@@ -4,6 +4,7 @@ import '../services/pantry_repository.dart';
 import '../services/ingredient_normalizer.dart';
 import '../services/recipe_recommender.dart';
 import '../services/recipe_ai_service.dart';
+import '../services/ai_recipes_storage.dart';
 import '../theme.dart';
 
 class RecipesScreen extends StatefulWidget {
@@ -28,21 +29,42 @@ class _RecipesScreenState extends State<RecipesScreen> {
     _load();
   }
 
+  /// Extract base ingredient name from "name (quantity)" format
+  String _baseIngredient(String ingredient) {
+    final idx = ingredient.lastIndexOf('(');
+    if (idx > 0) {
+      return ingredient.substring(0, idx).trim();
+    }
+    return ingredient;
+  }
+
+  /// Normalize pantry items by removing quantity suffixes
+  List<String> _normalizedPantry(List<String> pantry) {
+    return pantry.map(_baseIngredient).toList();
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
     final items = await _repo.getAllItems();
-    // Ensure normalized tokens
-    final normalized = IngredientNormalizer.normalize(items);
+    // Strip quantity suffixes from items for recipe matching
+    final stripped = _normalizedPantry(items);
+    final normalized = IngredientNormalizer.normalize(stripped);
     final matches = RecipeRecommender.recommend(pantry: normalized, minCoverage: 0.4);
+    
+    // Load cached AI recipes if available
+    final cached = await AIRecipesStorage.loadRecipes();
+    
     setState(() {
-      _pantry = normalized..sort();
+      _pantry = items; // Keep original with quantities for display
       _matches = matches;
+      _aiRecipes = cached; // Restore cached recipes
       _loading = false;
     });
   }
 
   Future<void> _generateAI() async {
-    if (_pantry.isEmpty) {
+    final normalizedForAI = _normalizedPantry(_pantry);
+    if (normalizedForAI.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('La alacena está vacía. Escanea un ticket o agrega ingredientes antes de generar.')),
@@ -52,8 +74,10 @@ class _RecipesScreenState extends State<RecipesScreen> {
     }
     setState(() => _aiLoading = true);
     try {
-      final out = await _ai.generate(ingredients: _pantry, max: 5);
+      final out = await _ai.generate(ingredients: normalizedForAI, max: 5);
       setState(() => _aiRecipes = out);
+      // Save generated recipes to storage
+      await AIRecipesStorage.saveRecipes(out);
       if (mounted && out.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('La IA no generó recetas.')),
@@ -72,12 +96,29 @@ class _RecipesScreenState extends State<RecipesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final displayPantry = _pantry.take(8).join(', ');
+    final hasAIRecipes = _aiRecipes.isNotEmpty;
+    final hasCatalogRecipes = _matches.isNotEmpty;
+    
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: const Text('Recetas Sugeridas'),
         backgroundColor: AppTheme.background,
         actions: [
+          IconButton(
+            onPressed: () async {
+              await AIRecipesStorage.clearRecipes();
+              if (mounted) {
+                setState(() => _aiRecipes = []);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Recetas IA borradas')),
+                );
+              }
+            },
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Borrar recetas IA',
+          ),
           IconButton(
             onPressed: _load,
             icon: const Icon(Icons.refresh),
@@ -105,6 +146,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
           : ListView(
               padding: const EdgeInsets.symmetric(vertical: 16),
               children: [
+<<<<<<< HEAD
                 // Botón prominente de IA
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -115,6 +157,19 @@ class _RecipesScreenState extends State<RecipesScreen> {
                           AppTheme.primary,
                           AppTheme.primaryDark,
                         ],
+=======
+                if (!hasCatalogRecipes && !hasAIRecipes)
+                  _Empty(matches: _matches, pantry: displayPantry),
+                if (hasCatalogRecipes) ...[
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text(
+                      'Catálogo',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppTheme.foreground,
+>>>>>>> bd5e1a4db3b7ca693b2ea8871ff0eedf85548521
                       ),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
@@ -268,8 +323,35 @@ class _RecipesScreenState extends State<RecipesScreen> {
                   ),
                   ..._matches.map(_matchTile),
                 ],
+<<<<<<< HEAD
                 
                 const SizedBox(height: 24),
+=======
+                if (_aiLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+                  ),
+                if (hasAIRecipes) ...[
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text(
+                      'IA (generadas)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                  ),
+                  ..._aiRecipes.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final recipe = entry.value;
+                    return _aiTileWithAnimation(recipe, index);
+                  }),
+                ],
+                const SizedBox(height: 16),
+>>>>>>> bd5e1a4db3b7ca693b2ea8871ff0eedf85548521
               ],
             ),
     );
@@ -281,8 +363,6 @@ class _RecipesScreenState extends State<RecipesScreen> {
     final miss = m.missing.length;
     return '$used de $total ingredientes • ${miss == 0 ? 'completa' : 'faltan $miss'}';
   }
-
-  String _panryPreview() => _pantry.take(8).join(', ');
 
   Widget _matchTile(RecipeMatch m) {
     return Card(
@@ -356,16 +436,47 @@ class _RecipesScreenState extends State<RecipesScreen> {
   }
 
   Widget _aiTile(Map<String, dynamic> r) {
+    // This method is now replaced by _aiTileWithAnimation
+    // Kept for backwards compatibility but not used
+    return const SizedBox.shrink();
+  }
+
+  Widget _aiTileWithAnimation(Map<String, dynamic> r, int index) {
     final title = (r['title'] ?? 'Receta').toString();
     final used = ((r['used'] as List?) ?? []).cast<String>();
     final missing = ((r['missing'] as List?) ?? []).cast<String>();
     final steps = ((r['steps'] as List?) ?? []).cast<String>();
+    
+    // Gradient colors that cycle
+    final gradients = [
+      [const Color(0xFFFEAA00), const Color(0xFFFF8C3A)],
+      [const Color(0xFF10B981), const Color(0xFF059669)],
+      [const Color(0xFF0EA5E9), const Color(0xFF0284C7)],
+      [const Color(0xFF8B5CF6), const Color(0xFF6D28D9)],
+      [const Color(0xFFEC4899), const Color(0xFFFDBE24)],
+    ];
+    final gradientPair = gradients[index % gradients.length];
+    
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      elevation: 0,
+      elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ExpansionTile(
-        leading: const Icon(Icons.auto_awesome, color: AppTheme.primary, size: 24),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: gradientPair,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Center(
+            child: Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+          ),
+        ),
         title: Text(
           title,
           style: const TextStyle(
@@ -374,21 +485,52 @@ class _RecipesScreenState extends State<RecipesScreen> {
             fontSize: 16,
           ),
         ),
-        subtitle: Text(
-          '${used.length} usados • ${missing.isEmpty ? 'completa' : 'faltan ${missing.length}'}',
-          style: const TextStyle(
-            color: AppTheme.textSecondary,
-            fontSize: 13,
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '✅ ${used.length} usados',
+                  style: TextStyle(
+                    color: Colors.green.shade700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: missing.isEmpty ? Colors.blue.shade100 : Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  missing.isEmpty ? '🎉 Completa' : '❌ Faltan ${missing.length}',
+                  style: TextStyle(
+                    color: missing.isEmpty ? Colors.blue.shade700 : Colors.orange.shade700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        collapsedBackgroundColor: AppTheme.primaryLight.withOpacity(0.05),
-        backgroundColor: AppTheme.primaryLight.withOpacity(0.05),
-        iconColor: AppTheme.primary,
-        collapsedIconColor: AppTheme.primary,
+        collapsedBackgroundColor: Color.lerp(gradientPair[0], Colors.white, 0.85) ?? Colors.white,
+        backgroundColor: Color.lerp(gradientPair[0], Colors.white, 0.90) ?? Colors.white,
+        iconColor: gradientPair[0],
+        collapsedIconColor: gradientPair[0],
         childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
           if (used.isNotEmpty)
-            _ChipsRow(label: 'Usas', items: used, color: Colors.blue.shade100),
+            _ChipsRow(label: 'Usas', items: used, color: Colors.green.shade100),
           if (missing.isNotEmpty)
             _ChipsRow(label: 'Te falta', items: missing, color: Colors.orange.shade100),
           if (steps.isNotEmpty) ...[
@@ -396,7 +538,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Pasos',
+                '👨‍🍳 Pasos para preparar',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: AppTheme.foreground,
@@ -404,17 +546,88 @@ class _RecipesScreenState extends State<RecipesScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            ...steps.map((s) => ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.check_circle, size: 18, color: AppTheme.primary),
-                  title: Text(
-                    s,
-                    style: const TextStyle(color: AppTheme.foreground, fontSize: 14),
-                  ),
-                )),
+            const SizedBox(height: 12),
+            ...steps.asMap().entries.map((entry) {
+              final stepIndex = entry.key + 1;
+              final step = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: gradientPair,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$stepIndex',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        step,
+                        style: const TextStyle(
+                          color: AppTheme.foreground,
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           ],
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [gradientPair[0].withOpacity(0.1), gradientPair[1].withOpacity(0.1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: gradientPair[0].withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  '💡',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '¡Receta generada con IA! Puedes guardarla en tus favoritos.',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -472,6 +685,7 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isPantryEmpty = pantry.isEmpty;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -489,7 +703,7 @@ class _Empty extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              pantry.isEmpty
+              isPantryEmpty
                   ? 'Tu alacena está vacía. Escanea un ticket o agrega ingredientes.'
                   : 'Con tu alacena: $pantry',
               textAlign: TextAlign.center,
