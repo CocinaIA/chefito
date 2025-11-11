@@ -21,7 +21,6 @@ class ReceiptScannerScreen extends StatefulWidget {
 class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
   File? _image;
   bool _loading = false;
-  bool _advancedLoading = false;
   List<String> _normalized = [];
   final _repo = PantryRepository();
   final _ai = ReceiptAIService();
@@ -93,7 +92,7 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
       }
       return;
     }
-    setState(() => _advancedLoading = true);
+    setState(() => _loading = true);
     try {
       final result = await _ai.parseWithProxy(imageFile: _image!);
       final aiCandidates = (result['ingredients'] as List).cast<String>();
@@ -154,7 +153,7 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _advancedLoading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -357,71 +356,18 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                         ),
                       ),
                     ),
-                  ] else if (_candidates.isNotEmpty && _normalized.isEmpty) ...[
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.orange.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '⚠️ Candidatos detectados (requieren validación)',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.foreground,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          ..._candidates
-                              .map((e) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 4),
-                                    child: Text(
-                                      '• $e',
-                                      style: const TextStyle(
-                                        color: AppTheme.textSecondary,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ))
-                              .toList(),
-                        ],
-                      ),
-                    ),
                   ],
 
                   if (_image != null && _normalized.isEmpty) ...[
                     const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _runNanonets,
-                          icon: const Icon(Icons.cloud_rounded),
-                          label: const Text('Usar IA'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primary,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                        if (AppConfig.nanonetsProxyUrl.isNotEmpty)
-                          ElevatedButton.icon(
-                            onPressed: _runProxy,
-                            icon: const Icon(Icons.cloud_queue_rounded),
-                            label: const Text('Nanonets'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primary.withOpacity(0.7),
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                      ],
+                    ElevatedButton.icon(
+                      onPressed: _runProxy,
+                      icon: const Icon(Icons.cloud_queue_rounded),
+                      label: const Text('Escaneo Avanzado (IA)'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ],
 

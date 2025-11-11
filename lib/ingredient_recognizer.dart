@@ -2,9 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'theme.dart';
+import 'services/pantry_repository.dart';
 
 class IngredientRecognizer extends StatefulWidget {
   const IngredientRecognizer({super.key});
@@ -18,9 +17,7 @@ class _IngredientRecognizerState extends State<IngredientRecognizer>
   File? _image;
   String _result = "";
   bool _loading = false;
-<<<<<<< HEAD
   final _repo = PantryRepository();
-=======
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
@@ -41,7 +38,6 @@ class _IngredientRecognizerState extends State<IngredientRecognizer>
     _pulseController.dispose();
     super.dispose();
   }
->>>>>>> b9b2f96be0b37d374caffe2e9ab35461060f6a7a
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();

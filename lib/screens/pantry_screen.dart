@@ -106,6 +106,111 @@ class _PantryScreenState extends State<PantryScreen> {
     await _repo.addItem(fullName, source: 'manual');
   }
 
+  Future<void> _editItem(PantryItem item) async {
+    final nameController = TextEditingController(text: item.name);
+    final quantityController = TextEditingController(text: item.quantity.toString());
+    
+    final result = await showDialog<Map<String, String>?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Editar ingrediente'),
+        contentPadding: const EdgeInsets.all(20),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Nombre del ingrediente',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Ej. tomate, cebolla, arroz',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Cantidad',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: quantityController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: 'Ej. 1, 2, 3...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, {
+              'name': nameController.text,
+              'quantity': quantityController.text,
+            }),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    
+    if (result == null || result['name']!.isEmpty) return;
+    
+    final newName = result['name']!.trim();
+    final newQuantity = int.tryParse(result['quantity']!) ?? item.quantity;
+    
+    // Si el nombre cambió, verificar que no exista ya
+    if (newName.toLowerCase() != item.name.toLowerCase()) {
+      final exists = await _repo.existsItem(newName);
+      if (exists && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ya existe un ingrediente llamado "$newName"'),
+            backgroundColor: Colors.orange.shade700,
+          ),
+        );
+        return;
+      }
+    }
+    
+    // Eliminar el antiguo y agregar el nuevo
+    await _repo.removeItem(item.name);
+    await _repo.addItem(newName, source: 'edit', quantity: newQuantity);
+    
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(child: Text('Actualizado: $newName')),
+          ],
+        ),
+        backgroundColor: AppTheme.primary,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   Future<void> _remove(String name, {int? previousQuantity}) async {
     await _repo.removeItem(name);
     if (!mounted) return;
@@ -208,31 +313,107 @@ class _PantryScreenState extends State<PantryScreen> {
                   margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                     side: BorderSide(
                       color: AppTheme.primaryLight.withOpacity(0.3),
                       width: 1,
                     ),
                   ),
                   child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    leading: Icon(
-                      Icons.check_circle,
-                      color: AppTheme.primary,
-                      size: 24,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.restaurant,
+                        color: AppTheme.primary,
+                        size: 20,
+                      ),
                     ),
                     title: Text(
                       name,
                       style: const TextStyle(
                         color: AppTheme.foreground,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                         fontSize: 15,
                       ),
                     ),
-                    trailing: Icon(
-                      Icons.swipe_left,
-                      color: AppTheme.textSecondary.withOpacity(0.5),
-                      size: 18,
+                    subtitle: Text(
+                      'Cantidad: ${item.quantity}',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Botón editar
+                        IconButton(
+                          onPressed: () => _editItem(item),
+                          icon: Icon(
+                            Icons.edit,
+                            color: AppTheme.primary,
+                            size: 20,
+                          ),
+                          tooltip: 'Editar nombre',
+                          padding: const EdgeInsets.all(8),
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 4),
+                        // Botón decrementar
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryLight.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: IconButton(
+                            onPressed: () async {
+                              final deleted = await _repo.adjustQuantity(name, -1);
+                              if (deleted && mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Eliminado: $name'),
+                                    action: SnackBarAction(
+                                      label: 'Deshacer',
+                                      onPressed: () async {
+                                        await _repo.addItem(name, source: 'undo', quantity: 1);
+                                      },
+                                    ),
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.remove, size: 18),
+                            color: AppTheme.foreground,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(),
+                            tooltip: 'Disminuir cantidad',
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        // Botón incrementar
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: IconButton(
+                            onPressed: () async {
+                              await _repo.adjustQuantity(name, 1);
+                            },
+                            icon: const Icon(Icons.add, size: 18),
+                            color: AppTheme.primary,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(),
+                            tooltip: 'Aumentar cantidad',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
