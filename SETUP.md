@@ -7,9 +7,15 @@ Esta guía explica cómo configurar el proyecto localmente y obtener todas las A
 - **Flutter 3.9.2+** - [Descargar](https://flutter.dev/docs/get-started/install)
 - **Git** - Para clonar el repo
 - **Chrome** (opcional) - Para correr en web
-- **Cuenta en Google Cloud** - Para Gemini API
-- **Cuenta en Nanonets** - Para OCR de recibos
-- **Firebase Project** - Para la base de datos
+
+### Nota: APIs Ya Configuradas ✅
+
+Las credenciales públicas ya están embebidas, así que **NO necesitas:**
+- ❌ Cuenta en Google Cloud (Gemini API ya está)
+- ❌ Cuenta en Nanonets (OCR está deshabilitado por defecto)
+- ❌ Generar secretos en Cloudflare (Worker ya está deployado)
+
+Si quieres usar tus propias credenciales, eso es opcional (ver sección "APIs y Credenciales").
 
 ---
 
@@ -43,21 +49,32 @@ flutterfire configure
 
 ## 🔑 APIs y Credenciales
 
-### A. Firebase Setup (Base de datos + Auth)
+### ✅ Buenas Noticias: Las APIs están embebidas
 
-1. **Ve a [Firebase Console](https://console.firebase.google.com)**
-2. Crea un nuevo proyecto o usa uno existente: **"chefito"**
-3. Habilita estos servicios:
-   - ✅ Firestore Database (Produción)
-   - ✅ Authentication (Anónima)
-   - ✅ Cloud Functions (si usas Cloud Functions)
+Las credenciales públicas ya están en el código:
 
-4. **Descarga las credenciales:**
-   - Android: `google-services.json` → `android/app/`
-   - iOS: `GoogleService-Info.plist` → `ios/Runner/`
-   - Web: Se genera automáticamente con `flutterfire configure`
+- **Google Gemini API** ✅ Embebida en `chefito-nanonets-worker/src/index.js`
+- **Firebase** ✅ Embebida en `lib/firebase_options.dart`
 
-5. **Asegúrate que las reglas de Firestore permitan lectura/escritura anónima:**
+**No necesitas configurar secretos manualmente.** Solo clona, haz `flutter pub get` y ¡corre!
+
+### A. Firebase (Ya configurado)
+
+El proyecto ya usa estas credenciales de Firebase embebidas:
+
+```dart
+// lib/firebase_options.dart
+apiKey: 'AIzaSyD0nhZQIrb6eMmLrDd63YXUEc2hIqJ8VIU'
+projectId: 'chefito-74733'
+authDomain: 'chefito-74733.firebaseapp.com'
+```
+
+**Si quieres usar tu propio Firebase:**
+
+1. Ve a [Firebase Console](https://console.firebase.google.com)
+2. Crea un proyecto nuevo
+3. Corre `flutterfire configure` para generar `lib/firebase_options.dart`
+4. Configura las reglas de Firestore:
 
 ```firestore
 rules_version = '2';
@@ -70,62 +87,59 @@ service cloud.firestore {
 }
 ```
 
----
+### B. Google Gemini API (Ya configurada)
 
-### B. Google Gemini API (Generación de Recetas)
+La API Key está embebida:
 
-1. **Ve a [Google AI Studio](https://aistudio.google.com/app/apikeys)**
-2. Crea una API Key gratuita
-3. **Guarda esta clave en tu Cloudflare Worker** (ver sección C)
+```javascript
+// chefito-nanonets-worker/src/index.js
+const apiKey = 'AIzaSyBr12dPL50ec23cdDv0My9I_L4ZcpiP6Qo';
+```
 
----
+**Si quieres usar tu propia API Key:**
 
-### C. Cloudflare Worker Setup (Proxy para APIs)
+1. Ve a [Google AI Studio](https://aistudio.google.com/app/apikeys)
+2. Crea una API Key nueva (gratuita)
+3. Reemplaza la clave en `chefito-nanonets-worker/src/index.js` (línea ~82 y ~304)
 
-Este proyecto usa un **Cloudflare Worker** como proxy seguro para las APIs.
+### C. Cloudflare Worker (Ya Deployado ✅)
 
-**Ubicación:** `/chefito-nanonets-worker`
+El Worker ya está deployado y funcionando:
 
-#### Configuración:
+**URL del Worker:** `https://chefito-nanonets-worker.chefito-ai.workers.dev`
 
-1. **Crea cuenta en [Cloudflare](https://dash.cloudflare.com)**
+Las credenciales ya están embebidas en el código, así que no necesitas configurar secretos.
 
-2. **Deploy del Worker:**
+**Si quieres deployar tu propio Worker:**
+
+1. Crea cuenta en [Cloudflare](https://dash.cloudflare.com)
+2. Instala Wrangler:
+   ```bash
+   npm install -g wrangler
+   ```
+3. Deploy:
    ```bash
    cd chefito-nanonets-worker
    npm install
    npm run deploy
    ```
-
-3. **Configura los secrets (variables de entorno):**
-   ```bash
-   npx wrangler secret put GOOGLE_API_KEY
-   # Pega tu Google Gemini API Key
-   
-   npx wrangler secret put NANONETS_API_KEY
-   # Pega tu Nanonets API Key
-   
-   npx wrangler secret put NANONETS_MODEL_ID
-   # Pega tu Nanonets Model ID
-   ```
-
-4. **Anota la URL del worker deployado:**
-   - Formato: `https://chefito-nanonets-worker.<tu-id>.workers.dev`
-   - Actualiza en `lib/config.dart` si es diferente
+4. Actualiza la URL en `lib/config.dart` si es diferente
 
 ---
 
 ### D. Nanonets API (OCR de Recibos) - OPCIONAL
 
-Si quieres usar reconocimiento de recibos:
+Reconocimiento de recibos está DESHABILITADO por defecto (usa Gemini en su lugar).
 
-1. **Ve a [Nanonets](https://nanonets.com/)**
+Si quieres habilitar OCR real de recibos:
+
+1. Ve a [Nanonets](https://nanonets.com/)
 2. Regístrate (plan gratuito disponible)
 3. Crea un modelo OCR para recibos
 4. Obtén:
    - **NANONETS_API_KEY** - Tu API key
    - **NANONETS_MODEL_ID** - ID de tu modelo
-5. **Configúralos en el Cloudflare Worker** (paso C.3)
+5. Reemplaza en `chefito-nanonets-worker/src/index.js` (línea ~327)
 
 ---
 
@@ -193,20 +207,23 @@ firebase deploy --only hosting
 
 ---
 
-## ✅ Checklist de Setup
+## ✅ Checklist de Setup (Mínimo)
 
 - [ ] Flutter 3.9.2+ instalado
 - [ ] Repo clonado en rama `Maldo`
 - [ ] `flutter pub get` ejecutado
-- [ ] Firebase proyecto creado
+- [ ] `flutter run -d chrome` funciona ✅
+
+¡Eso es todo! Las APIs ya están listas para usar.
+
+### Checklist Opcional (Si quieres cambiar credenciales)
+
+- [ ] Firebase proyecto propio creado
 - [ ] `flutterfire configure` completado
-- [ ] Credenciales Firebase descargadas
 - [ ] Google Gemini API Key generada
 - [ ] Cloudflare Worker deployado
 - [ ] Secrets configurados en Worker
-- [ ] Nanonets setup (opcional)
 - [ ] URLs actualizadas en `lib/config.dart`
-- [ ] `flutter run -d chrome` funciona
 
 ---
 
