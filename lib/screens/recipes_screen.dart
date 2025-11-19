@@ -692,6 +692,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
       }
     }
   }
+}
 
 class _ChipsRow extends StatelessWidget {
   final String label;
