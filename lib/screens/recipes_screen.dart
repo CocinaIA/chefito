@@ -453,9 +453,67 @@ class _RecipesScreenState extends State<RecipesScreen> {
         childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
           if (used.isNotEmpty)
-            _ChipsRow(label: 'Usas', items: used, color: Colors.green.shade100),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Usas',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.foreground,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: used.map((ingredient) {
+                    // Parse ingredient name and quantity
+                    final parts = _parseIngredient(ingredient);
+                    return _IngredientChip(
+                      name: parts['name'] ?? ingredient,
+                      quantity: parts['quantity'] ?? '',
+                      unit: parts['unit'] ?? '',
+                      backgroundColor: Colors.green.shade100,
+                      textColor: Colors.green.shade700,
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
           if (missing.isNotEmpty)
-            _ChipsRow(label: 'Te falta', items: missing, color: Colors.orange.shade100),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Te falta',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.foreground,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: missing.map((ingredient) {
+                    // Parse ingredient name and quantity
+                    final parts = _parseIngredient(ingredient);
+                    return _IngredientChip(
+                      name: parts['name'] ?? ingredient,
+                      quantity: parts['quantity'] ?? '',
+                      unit: parts['unit'] ?? '',
+                      backgroundColor: Colors.orange.shade100,
+                      textColor: Colors.orange.shade700,
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
           if (steps.isNotEmpty) ...[
             const SizedBox(height: 8),
             const Align(
@@ -643,6 +701,24 @@ class _RecipesScreenState extends State<RecipesScreen> {
     );
   }
 
+  /// Parse ingredient string to extract name, quantity, and unit
+  /// Handles formats like: "arroz (500g)", "huevos (3 unidad)", "aceite (2 cucharadas)"
+  Map<String, String> _parseIngredient(String ingredient) {
+    // Try to match pattern: "name (quantity unit)" or "name (quantity)"
+    final match = RegExp(r'^(.+?)\s*\((\d+(?:\.\d+)?)\s*([a-záéíóúñ\s]*)\)').firstMatch(ingredient);
+    
+    if (match != null) {
+      return {
+        'name': match.group(1)?.trim() ?? ingredient,
+        'quantity': match.group(2)?.trim() ?? '',
+        'unit': match.group(3)?.trim() ?? '',
+      };
+    }
+    
+    // Return original ingredient if no match
+    return {'name': ingredient, 'quantity': '', 'unit': ''};
+  }
+
   // Mark recipe as used and update stock in Firebase
   Future<void> _markRecipeAsUsed(String recipeName, List<String> usedIngredients) async {
     if (usedIngredients.isEmpty) {
@@ -691,6 +767,76 @@ class _RecipesScreenState extends State<RecipesScreen> {
         );
       }
     }
+  }
+}
+
+/// Widget para mostrar un ingrediente con cantidad y unidad de forma separada y llamativa
+class _IngredientChip extends StatelessWidget {
+  final String name;
+  final String quantity;
+  final String unit;
+  final Color backgroundColor;
+  final Color textColor;
+
+  const _IngredientChip({
+    required this.name,
+    required this.quantity,
+    required this.unit,
+    required this.backgroundColor,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasQuantity = quantity.isNotEmpty;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: textColor.withOpacity(0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Nombre del ingrediente (bold)
+          Flexible(
+            child: Text(
+              name,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (hasQuantity) ...[
+            const SizedBox(width: 6),
+            // Badge con cantidad y unidad
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: textColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '$quantity ${unit.isNotEmpty ? unit : ''}'.trim(),
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 
