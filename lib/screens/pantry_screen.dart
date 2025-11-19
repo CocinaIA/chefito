@@ -12,6 +12,23 @@ class PantryScreen extends StatefulWidget {
   State<PantryScreen> createState() => _PantryScreenState();
 }
 
+/// Helper to parse ingredient string and extract quantity/unit
+Map<String, String> _parseIngredientDisplay(String ingredient) {
+  // Try to match patterns like "50 g arroz", "3 unidad tomate", etc.
+  // Pattern: "quantity unit name" or just "name"
+  final match = RegExp(r'^(\d+(?:\.\d+)?)\s+([a-záéíóúñ\s]*?)\s+(.+)$').firstMatch(ingredient.trim());
+  
+  if (match != null) {
+    return {
+      'quantity': match.group(1)?.trim() ?? '',
+      'unit': match.group(2)?.trim() ?? '',
+      'name': match.group(3)?.trim() ?? ingredient,
+    };
+  }
+  
+  return {'name': ingredient, 'quantity': '', 'unit': ''};
+}
+
 class _PantryScreenState extends State<PantryScreen> {
   final _repo = PantryRepository();
 
@@ -132,6 +149,62 @@ class _PantryScreenState extends State<PantryScreen> {
     );
   }
 
+  /// Build widget to display ingredient with separated quantity and unit
+  Widget _buildIngredientDisplay(String ingredient) {
+    final parts = _parseIngredientDisplay(ingredient);
+    final name = parts['name'] ?? ingredient;
+    final quantity = parts['quantity'] ?? '';
+    final unit = parts['unit'] ?? '';
+    final hasQuantity = quantity.isNotEmpty;
+
+    if (!hasQuantity) {
+      return Text(
+        name,
+        style: const TextStyle(
+          color: AppTheme.foreground,
+          fontWeight: FontWeight.w500,
+          fontSize: 15,
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            name,
+            style: const TextStyle(
+              color: AppTheme.foreground,
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppTheme.primary.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppTheme.primary.withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            '$quantity $unit'.trim(),
+            style: const TextStyle(
+              color: AppTheme.primary,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _remove(String name) async {
     await _repo.removeItem(name);
     if (!mounted) return;
@@ -235,14 +308,7 @@ class _PantryScreenState extends State<PantryScreen> {
                       color: AppTheme.primary,
                       size: 24,
                     ),
-                    title: Text(
-                      name,
-                      style: const TextStyle(
-                        color: AppTheme.foreground,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 15,
-                      ),
-                    ),
+                    title: _buildIngredientDisplay(name),
                     trailing: Icon(
                       Icons.swipe_left,
                       color: AppTheme.textSecondary.withOpacity(0.5),
