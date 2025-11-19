@@ -34,76 +34,102 @@ class _PantryScreenState extends State<PantryScreen> {
   Future<void> _addManually() async {
     final nameController = TextEditingController();
     final quantityController = TextEditingController(text: '1');
+    String selectedUnit = 'unidad';
     
-    final result = await showDialog<Map<String, String>?>(
+    final commonUnits = ['unidad', 'g', 'kg', 'ml', 'l', 'cucharada', 'taza'];
+    
+    final result = await showDialog<Map<String, dynamic>?>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Agregar ingrediente'),
-        contentPadding: const EdgeInsets.all(20),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Ingrediente',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Ej. tomate, cebolla, arroz',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Agregar ingrediente'),
+          contentPadding: const EdgeInsets.all(20),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Ingrediente',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Cantidad',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: quantityController,
-                decoration: InputDecoration(
-                  hintText: 'Ej. 500g, 2kg, 1 unidad',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'Ej. tomate, cebolla, arroz',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                const Text(
+                  'Cantidad',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: quantityController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    hintText: 'Ej. 500, 2.5, 1',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Unidad de medida',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                DropdownButton<String>(
+                  value: selectedUnit,
+                  isExpanded: true,
+                  items: commonUnits
+                      .map((unit) => DropdownMenuItem(value: unit, child: Text(unit)))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() => selectedUnit = value ?? 'unidad');
+                  },
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, {
+                'name': nameController.text,
+                'quantity': double.tryParse(quantityController.text) ?? 1.0,
+                'unit': selectedUnit,
+              }),
+              child: const Text('Agregar'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, null),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, {
-              'name': nameController.text,
-              'quantity': quantityController.text,
-            }),
-            child: const Text('Agregar'),
-          ),
-        ],
       ),
     );
     
-    if (result == null || result['name']!.isEmpty) return;
+    if (result == null || result['name'].isEmpty) return;
     
-    final normalized = IngredientNormalizer.normalize([result['name']!]);
+    final normalized = IngredientNormalizer.normalize([result['name']]);
     if (normalized.isEmpty) return;
     
-    // Guardar con cantidad en la descripción
-    final fullName = '${normalized.first}${result['quantity']!.isNotEmpty ? ' (${result['quantity']!})' : ''}';
-    await _repo.addItem(fullName, source: 'manual');
+    // Guardar con cantidad y unidad separados
+    await _repo.addItem(
+      normalized.first,
+      quantity: result['quantity'] as double,
+      unit: result['unit'] as String,
+    );
   }
 
   Future<void> _remove(String name) async {

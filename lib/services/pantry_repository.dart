@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../models/ingredient.dart';
 
 class PantryRepository {
   final FirebaseFirestore _db;
@@ -18,21 +19,23 @@ class PantryRepository {
   Future<void> addItems(List<String> names, {String source = 'receipt'}) async {
     debugPrint('🔥 PantryRepository.addItems called with ${names.length} items');
     debugPrint('🔥 User ID: $_uid');
-    debugPrint('🔥 Collection path: users/$_uid/pantry');
-    debugPrint('🔥 Firestore settings: ${_db.settings}');
     
     final batch = _db.batch();
     final now = DateTime.now();
     for (final name in names) {
       final id = name.toLowerCase();
       final doc = _collection.doc(id);
-  debugPrint('🔥 Adding document: $id with name: $name');
-      batch.set(doc, {
-        'name': name,
-        'source': source,
-        'updatedAt': now,
-        'createdAt': now,
-      }, SetOptions(merge: true));
+      final ingredient = Ingredient(
+        id: id,
+        name: name,
+        quantity: 1.0,
+        unit: 'unidad',
+        createdAt: now,
+        updatedAt: now,
+        source: source,
+      );
+      debugPrint('🔥 Adding ingredient: ${ingredient.display}');
+      batch.set(doc, ingredient.toFirestore(), SetOptions(merge: true));
     }
     
     debugPrint('🔥 Committing batch...');
@@ -46,15 +49,45 @@ class PantryRepository {
     }
   }
 
-  Future<void> addItem(String name, {String source = 'manual'}) async {
+  Future<void> addItem(String name, {String source = 'manual', double quantity = 1.0, String unit = 'unidad'}) async {
     final now = DateTime.now();
     final id = name.toLowerCase();
-    await _collection.doc(id).set({
-      'name': name,
-      'source': source,
-      'updatedAt': now,
-      'createdAt': now,
-    }, SetOptions(merge: true));
+    final ingredient = Ingredient(
+      id: id,
+      name: name,
+      quantity: quantity,
+      unit: unit,
+      createdAt: now,
+      updatedAt: now,
+      source: source,
+    );
+    await _collection.doc(id).set(ingredient.toFirestore(), SetOptions(merge: true));
+  }
+
+  // Actualizar cantidad de un ingrediente (para consumo)
+  Future<void> updateIngredientQuantity(String ingredientId, double newQuantity) async {
+    final id = ingredientId.toLowerCase();
+    await _collection.doc(id).update({
+      'quantity': newQuantity,
+      'updatedAt': DateTime.now(),
+    });
+  }
+
+  // Consumir cantidad de un ingrediente (resta)
+  Future<void> consumeIngredient(String ingredientId, double amountToConsume) async {
+    final id = ingredientId.toLowerCase();
+    final doc = await _collection.doc(id).get();
+    if (!doc.exists) return;
+    
+    final current = Ingredient.fromFirestore(doc.data() as Map<String, dynamic>);
+    final newQuantity = (current.quantity - amountToConsume).clamp(0.0, double.infinity);
+    
+    await _collection.doc(id).update({
+      'quantity': newQuantity,
+      'updatedAt': DateTime.now(),
+    });
+    
+    debugPrint('🔥 Consumed $amountToConsume from ${current.name}: ${current.quantity} -> $newQuantity');
   }
 
   Future<void> removeItem(String name) async {
@@ -64,11 +97,34 @@ class PantryRepository {
 
   Stream<List<String>> streamPantry() {
     return _collection.snapshots().map((snap) =>
-        snap.docs.map((d) => (d.data()['name'] as String?) ?? d.id).toList());
+        snap.docs.map((d) {
+          final ing = Ingredient.fromFirestore(d.data());
+          return ing.display; // Mostrar "3 huevos", "500g arroz", etc
+        }).toList());
+  }
+
+  Stream<List<Ingredient>> streamPantryIngredients() {
+    return _collection.snapshots().map((snap) =>
+        snap.docs.map((d) => Ingredient.fromFirestore(d.data())).toList());
   }
 
   Future<List<String>> getAllItems() async {
     final snap = await _collection.get();
-    return snap.docs.map((d) => (d.data()['name'] as String?) ?? d.id).toList();
+    return snap.docs.map((d) {
+      final ing = Ingredient.fromFirestore(d.data());
+      return ing.display;
+    }).toList();
+  }
+
+  Future<List<Ingredient>> getAllIngredients() async {
+    final snap = await _collection.get();
+    return snap.docs.map((d) => Ingredient.fromFirestore(d.data())).toList();
+  }
+
+  Future<Ingredient?> getIngredient(String ingredientId) async {
+    final id = ingredientId.toLowerCase();
+    final doc = await _collection.doc(id).get();
+    if (!doc.exists) return null;
+    return Ingredient.fromFirestore(doc.data() as Map<String, dynamic>);
   }
 }

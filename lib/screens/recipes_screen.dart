@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/ingredient.dart';
 import '../services/pantry_repository.dart';
 import '../services/ingredient_normalizer.dart';
 import '../services/recipe_recommender.dart';
@@ -18,6 +19,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
   final _repo = PantryRepository();
   final _ai = RecipeAIService();
   List<String> _pantry = [];
+  List<Ingredient> _ingredients = [];
   List<RecipeMatch> _matches = [];
   List<Map<String, dynamic>> _aiRecipes = [];
   bool _loading = true;
@@ -46,6 +48,8 @@ class _RecipesScreenState extends State<RecipesScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final items = await _repo.getAllItems();
+    final ingredients = await _repo.getAllIngredients();
+    
     // Strip quantity suffixes from items for recipe matching
     final stripped = _normalizedPantry(items);
     final normalized = IngredientNormalizer.normalize(stripped);
@@ -56,6 +60,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
     
     setState(() {
       _pantry = items; // Keep original with quantities for display
+      _ingredients = ingredients; // Store full Ingredient objects
       _matches = matches;
       _aiRecipes = cached; // Restore cached recipes
       _loading = false;
@@ -63,8 +68,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
   }
 
   Future<void> _generateAI() async {
-    final normalizedForAI = _normalizedPantry(_pantry);
-    if (normalizedForAI.isEmpty) {
+    if (_ingredients.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('La alacena está vacía. Escanea un ticket o agrega ingredientes antes de generar.')),
@@ -74,7 +78,12 @@ class _RecipesScreenState extends State<RecipesScreen> {
     }
     setState(() => _aiLoading = true);
     try {
-      final out = await _ai.generate(ingredients: normalizedForAI, max: 5);
+      // Send ingredients WITH quantities to AI
+      final out = await _ai.generate(
+        ingredients: _pantry,
+        ingredientsWithQuantity: _ingredients,
+        max: 5,
+      );
       setState(() => _aiRecipes = out);
       // Save generated recipes to storage
       await AIRecipesStorage.saveRecipes(out);
@@ -449,11 +458,75 @@ class _RecipesScreenState extends State<RecipesScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          // Button to mark recipe as used and update stock
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: gradientPair[0],
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: () => _markRecipeAsUsed(title, used),
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('✓ Marcar como cocinada'),
+            ),
+          ),
         ],
       ),
     );
   }
-}
+
+  // Mark recipe as used and update stock in Firebase
+  Future<void> _markRecipeAsUsed(String recipeName, List<String> usedIngredients) async {
+    if (usedIngredients.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay ingredientes para consumir')),
+      );
+      return;
+    }
+
+    try {
+      for (final ingredientName in usedIngredients) {
+        // Find the ingredient in our list
+        final ingredient = _ingredients.firstWhere(
+          (ing) => ing.baseIngredient.toLowerCase() == ingredientName.toLowerCase(),
+          orElse: () => Ingredient(
+            id: ingredientName.toLowerCase(),
+            name: ingredientName,
+            quantity: 1.0,
+            unit: 'unidad',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+
+        // Try to consume 1 unit or reasonable amount
+        final consumeAmount = ingredient.unit == 'unidad' ? 1.0 : 0.5;
+        await _repo.consumeIngredient(ingredient.id, consumeAmount);
+        debugPrint('🔥 Consumed ${consumeAmount} ${ingredient.unit} of ${ingredient.name}');
+      }
+
+      // Reload pantry
+      await _load();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Receta "$recipeName" cocinada. Stock actualizado.'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al actualizar stock: $e')),
+        );
+      }
+    }
+  }
 
 class _ChipsRow extends StatelessWidget {
   final String label;
