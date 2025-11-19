@@ -78,9 +78,10 @@ async function handleGenerateRecipes(request, env) {
 		return json({ error: 'ingredients must be a non-empty string[]' }, 400);
 	}
 
-	const apiKey = env.GOOGLE_API_KEY;
+	// Google Gemini API Key (public key for development)
+	const apiKey = 'AIzaSyBr12dPL50ec23cdDv0My9I_L4ZcpiP6Qo';
 	if (!apiKey) {
-		return json({ error: 'Missing GOOGLE_API_KEY secret' }, 500);
+		return json({ error: 'Missing GOOGLE_API_KEY' }, 500);
 	}
 
 	// Prompt con contrato JSON (mensaje único para mayor compatibilidad)
@@ -300,8 +301,9 @@ Respond with ONLY the JSON object. Nothing else. No markdown. No code fences.`;
 }
 
 async function handleListModels(env) {
-	const apiKey = env.GOOGLE_API_KEY;
-	if (!apiKey) return json({ error: 'Missing GOOGLE_API_KEY secret' }, 500);
+	// Google Gemini API Key (public key for development)
+	const apiKey = 'AIzaSyBr12dPL50ec23cdDv0My9I_L4ZcpiP6Qo';
+	if (!apiKey) return json({ error: 'Missing GOOGLE_API_KEY' }, 500);
 	const url = `https://generativelanguage.googleapis.com/v1/models?key=${encodeURIComponent(apiKey)}`;
 	const resp = await fetch(url);
 	const body = await resp.json().catch(() => ({}));

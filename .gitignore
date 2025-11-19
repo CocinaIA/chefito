@@ -60,27 +60,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Firebase / Credentials (IMPORTANT - Never commit these!)
-firebase.json
-.firebaserc
-firebase-debug.log
-.env
-.env.local
-.env.*.local
-google-services.json
-GoogleService-Info.plist
-lib/firebase_options.dart
-*.jks
-*.keystore
-*.p8
-*.p12
-*.pfx
-
-# Cloudflare Worker secrets
-.wrangler/
-wrangler.toml
-.env
-
 # Build output
 build/
 dist/
