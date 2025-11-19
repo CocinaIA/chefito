@@ -164,7 +164,52 @@ chefito/
 
 ---
 
-## 🏃 Correr la App
+## 🍳 Funcionalidades principales
+
+### 1. **Gestión de Alacena (Pantry)**
+- ✅ Agregar ingredientes manualmente con **cantidad y unidad de medida**
+  - Ejemplos: "3 huevos", "500g arroz", "250ml leche"
+- ✅ Escanear tickets para extraer ingredientes automáticamente
+- ✅ Limpiar ruido (palabras irrelevantes) de la alacena
+- ✅ Cada ingrediente tracking: cantidad actual disponible
+
+### 2. **Generación de Recetas con IA (Gemini)**
+- ✅ Generar recetas basadas en ingredientes disponibles
+- ✅ La IA ve **cantidades disponibles** de cada ingrediente
+- ✅ Recetas almacenadas en localStorage (no se pierden al refrescar)
+- ✅ Mostrar ingredientes usados, faltantes y pasos de preparación
+
+### 3. **Consumo Automático de Stock**
+- ✅ Botón "✓ Marcar como cocinada" en cada receta
+- ✅ Al usar una receta, **automáticamente decrementa** el stock de ingredientes
+  - Reemplaza 1 unidad o 0.5 de unidades fraccionales
+- ✅ Stock sincronizado con Firebase en tiempo real
+- ✅ Pantalla se actualiza automáticamente después del consumo
+
+### 4. **Reconocimiento de Ingredientes (OCR)**
+- ✅ Reconocer ingredientes de tickets de compra
+- ✅ Machine Learning para clasificación de ingredientes
+- ✅ Normalización automática de nombres
+
+## 📊 Ejemplo de Flujo
+
+1. **Agregar ingredientes:**
+   - Usuario toca "+" en "Mi alacena"
+   - Ingresa: "Arroz", Cantidad: "500", Unidad: "g"
+   - Se guarda como: "500g arroz" en Firestore
+
+2. **Generar receta:**
+   - Usuario va a "Recetas" y toca "Generar con IA"
+   - Gemini API recibe: "500g de arroz, 3 huevos, ..."
+   - IA genera: "Arroz con huevos" (receta completa)
+
+3. **Usar receta:**
+   - Usuario ve receta y toca "✓ Marcar como cocinada"
+   - Sistema resta automáticamente:
+     - Arroz: 500g → 450g (o cantidad especificada)
+     - Huevos: 3 → 2
+   - Stock actualiza en Firebase inmediatamente
+   - Pantalla recarga con nuevas cantidades
 
 ### En Chrome (Web)
 ```bash
