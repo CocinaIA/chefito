@@ -273,9 +273,15 @@ class _RecipesScreenState extends State<RecipesScreen> {
 
   Widget _aiTileWithAnimation(Map<String, dynamic> r, int index) {
     final title = (r['title'] ?? 'Receta').toString();
+    final description = (r['description'] ?? '').toString().trim();
+    final servings = (r['servings'] ?? '').toString().trim();
+    final time = (r['time'] ?? '').toString().trim();
+    final difficulty = (r['difficulty'] ?? 'medium').toString().trim();
     final used = ((r['used'] as List?) ?? []).cast<String>();
     final missing = ((r['missing'] as List?) ?? []).cast<String>();
     final steps = ((r['steps'] as List?) ?? []).cast<String>();
+    final tips = ((r['tips'] as List?) ?? []).cast<String>();
+    final variations = ((r['variations'] as List?) ?? []).cast<String>();
     
     // Gradient colors that cycle
     final gradients = [
@@ -286,6 +292,33 @@ class _RecipesScreenState extends State<RecipesScreen> {
       [const Color(0xFFEC4899), const Color(0xFFFDBE24)],
     ];
     final gradientPair = gradients[index % gradients.length];
+    
+    // Difficulty badge color
+    Color getDifficultyColor(String diff) {
+      switch (diff.toLowerCase()) {
+        case 'easy':
+          return Colors.green;
+        case 'medium':
+          return Colors.orange;
+        case 'hard':
+          return Colors.red;
+        default:
+          return Colors.blue;
+      }
+    }
+
+    String getDifficultyEmoji(String diff) {
+      switch (diff.toLowerCase()) {
+        case 'easy':
+          return '😊';
+        case 'medium':
+          return '👨‍🍳';
+        case 'hard':
+          return '🔥';
+        default:
+          return '🍳';
+      }
+    }
     
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -307,50 +340,110 @@ class _RecipesScreenState extends State<RecipesScreen> {
             child: Icon(Icons.auto_awesome, color: Colors.white, size: 20),
           ),
         ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: AppTheme.foreground,
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: AppTheme.foreground,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+            ),
+            if (description.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  description,
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w400,
+                    fontSize: 12,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
         ),
         subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade100,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '✅ ${used.length} usados',
-                  style: TextStyle(
-                    color: Colors.green.shade700,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+          padding: const EdgeInsets.only(top: 8),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                if (servings.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '🍽️ $servings',
+                        style: TextStyle(
+                          color: Colors.blue.shade700,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (time.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '⏱️ $time',
+                        style: TextStyle(
+                          color: Colors.purple.shade700,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: getDifficultyColor(difficulty).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${getDifficultyEmoji(difficulty)} ${difficulty[0].toUpperCase()}${difficulty.substring(1)}',
+                    style: TextStyle(
+                      color: getDifficultyColor(difficulty),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: missing.isEmpty ? Colors.blue.shade100 : Colors.orange.shade100,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  missing.isEmpty ? '🎉 Completa' : '❌ Faltan ${missing.length}',
-                  style: TextStyle(
-                    color: missing.isEmpty ? Colors.blue.shade700 : Colors.orange.shade700,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade100,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '✅ ${used.length}',
+                    style: TextStyle(
+                      color: Colors.green.shade700,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         collapsedBackgroundColor: Color.lerp(gradientPair[0], Colors.white, 0.85) ?? Colors.white,
@@ -415,6 +508,78 @@ class _RecipesScreenState extends State<RecipesScreen> {
                           color: AppTheme.foreground,
                           fontSize: 14,
                           height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+          if (tips.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '💡 Consejos profesionales',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.foreground,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...tips.map((tip) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('✨ ', style: TextStyle(fontSize: 16)),
+                    Expanded(
+                      child: Text(
+                        tip,
+                        style: const TextStyle(
+                          color: AppTheme.foreground,
+                          fontSize: 13,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+          if (variations.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '🔄 Variaciones',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.foreground,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...variations.map((variation) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('👉 ', style: TextStyle(fontSize: 16)),
+                    Expanded(
+                      child: Text(
+                        variation,
+                        style: const TextStyle(
+                          color: AppTheme.foreground,
+                          fontSize: 13,
+                          height: 1.3,
                         ),
                       ),
                     ),
