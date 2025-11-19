@@ -84,25 +84,51 @@ async function handleGenerateRecipes(request, env) {
 		return json({ error: 'Missing GOOGLE_API_KEY' }, 500);
 	}
 
-	// Prompt con contrato JSON (mensaje único para mayor compatibilidad)
-	const prompt = `You are a culinary assistant. Respond ONLY with valid JSON.
-DO NOT use code fences (backticks), DO NOT wrap in markdown, just raw JSON.
+	// Prompt con contrato JSON mejorado para recetas detalladas
+	const prompt = `You are an expert culinary chef. Create DETAILED, SPECIFIC recipes.
+Respond ONLY with valid JSON. NO markdown, NO code fences.
 JSON structure MUST be exactly:
-{"recipes":[{"title":"string","used":["string"],"missing":["string"],"steps":["string"]}]}
-Rules:
+{
+  "recipes": [
+    {
+      "title": "Recipe name",
+      "description": "1-2 line description of the dish",
+      "servings": "number of servings",
+      "time": "total cooking time (e.g., 30 minutes)",
+      "difficulty": "easy/medium/hard",
+      "used": ["ingredient1", "ingredient2"],
+      "missing": ["optional ingredient for better taste"],
+      "steps": [
+        "STEP 1 (PREPARATION): Specific details on what to cut, how to prepare. Be very specific about sizes and techniques.",
+        "STEP 2 (COOKING): Exact temperatures, times, and what to look for. Example: 'Heat oil to 180°C (or until shimmering), add ingredients...'",
+        "STEP 3 (CONTINUATION): More specific instructions with temperatures and timing",
+        "STEP 4 (FINISHING): Final touches and plating instructions"
+      ],
+      "tips": ["Professional tips for best results", "Common mistakes to avoid"],
+      "variations": ["Alternative ingredient substitutions", "Different cooking methods"]
+    }
+  ]
+}
+CRITICAL REQUIREMENTS:
+- Each step MUST be 2-3 sentences with SPECIFIC temperatures, times, techniques, and what to observe
+- Include exact cooking temperatures (Celsius) when relevant
+- Include timing for each step (e.g., "cook for 8-10 minutes until golden")
+- Describe visual/sensory cues (color, smell, texture, sound)
+- Be specific about cutting/chopping sizes (diced, minced, thinly sliced, etc)
+- Include professional cooking techniques and terminology
 - Maximum ${max} recipes
-- Maximize use of available ingredients  
-- Use simple terms and brief steps
-- No brand names
-- Each recipe must have at least 2 steps and 1 used ingredient
+- Maximize use of available ingredients
+- Each recipe must have at least 4 detailed steps and 1 used ingredient
+- Include serving size and total time
+- Difficulty level: easy (no special skills), medium (basic cooking skills), hard (advanced techniques)
 Available ingredients: ${ingredients.join(', ')}
 Preferences: ${JSON.stringify(prefs)}
-Respond with ONLY the JSON object. Nothing else. No markdown. No code fences.`;
+Respond with ONLY the JSON. Nothing else. No explanations.`;
 
 	// Build request payload once
 	const payload = {
 		contents: [{ role: 'user', parts: [{ text: prompt }] }],
-		generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 2048 },
+		generationConfig: { temperature: 0.3, topP: 0.85, maxOutputTokens: 4096 },
 	};
 
 	// Helper to call Gemini with version+model
@@ -267,9 +293,15 @@ Respond with ONLY the JSON object. Nothing else. No markdown. No code fences.`;
 						recipes: parsedObjects
 							.map(o => ({
 								title: String(o.title || o.name || '').trim() || 'Receta sin nombre',
+								description: String(o.description || '').trim() || '',
+								servings: String(o.servings || '').trim() || '',
+								time: String(o.time || '').trim() || '',
+								difficulty: String(o.difficulty || '').trim() || 'medium',
 								used: Array.isArray(o.used) ? o.used.map(String).filter(s => s.trim()) : [],
 								missing: Array.isArray(o.missing) ? o.missing.map(String).filter(s => s.trim()) : [],
 								steps: Array.isArray(o.steps) ? o.steps.map(String).filter(s => s.trim()) : (Array.isArray(o.instructions) ? o.instructions.map(String).filter(s => s.trim()) : []),
+								tips: Array.isArray(o.tips) ? o.tips.map(String).filter(s => s.trim()) : [],
+								variations: Array.isArray(o.variations) ? o.variations.map(String).filter(s => s.trim()) : [],
 							}))
 							.filter(r => r.title && (r.used.length > 0 || r.steps.length > 0))  // Only valid recipes
 							.slice(0, max) 
@@ -289,9 +321,15 @@ Respond with ONLY the JSON object. Nothing else. No markdown. No code fences.`;
 	const recipes = Array.isArray(parsed.recipes) ? parsed.recipes : [];
 	for (const r of recipes) {
 		r.title = String(r.title || '').trim() || 'Receta';
+		r.description = String(r.description || '').trim() || '';
+		r.servings = String(r.servings || '').trim() || '';
+		r.time = String(r.time || '').trim() || '';
+		r.difficulty = String(r.difficulty || 'medium').trim() || 'medium';
 		r.used = Array.isArray(r.used) ? r.used.map(String).filter(s => s.trim()) : [];
 		r.missing = Array.isArray(r.missing) ? r.missing.map(String).filter(s => s.trim()) : [];
 		r.steps = Array.isArray(r.steps) ? r.steps.map(String).filter(s => s.trim()) : [];
+		r.tips = Array.isArray(r.tips) ? r.tips.map(String).filter(s => s.trim()) : [];
+		r.variations = Array.isArray(r.variations) ? r.variations.map(String).filter(s => s.trim()) : [];
 	}
 
 	// Remove duplicates and filter empty recipes
