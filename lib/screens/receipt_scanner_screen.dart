@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
+import '../models/ingredient.dart';
 import '../services/receipt_parser.dart';
 import '../services/ingredient_normalizer.dart';
 import '../services/pantry_repository.dart';
@@ -24,8 +25,10 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
   String _rawText = '';
   List<String> _candidates = [];
   List<String> _normalized = [];
+  List<Ingredient> _ingredientsWithQuantity = [];
   final _repo = PantryRepository();
   final _ai = ReceiptAIService();
+  final commonUnits = ['unidad', 'g', 'kg', 'ml', 'l', 'cucharada', 'taza'];
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -42,6 +45,7 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
       _rawText = '';
       _candidates = [];
       _normalized = [];
+      _ingredientsWithQuantity = [];
     });
 
     final inputImage = InputImage.fromFile(_image!);
@@ -53,23 +57,53 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
     final candidates = ReceiptParser.parse(text);
     final normalized = IngredientNormalizer.normalize(candidates);
 
+    // Create Ingredient objects with default quantity/unit
+    final ingredientsWithQty = normalized.map((name) => Ingredient(
+      id: name.toLowerCase(),
+      name: name,
+      quantity: 1.0,
+      unit: 'unidad',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      source: 'receipt',
+    )).toList();
+
     setState(() {
       _loading = false;
       _rawText = text;
       _candidates = candidates;
       _normalized = normalized;
+      _ingredientsWithQuantity = ingredientsWithQty;
     });
   }
 
   Future<void> _savePantry() async {
-    if (_normalized.isEmpty) return;
+    if (_ingredientsWithQuantity.isEmpty) return;
     setState(() => _loading = true);
-    await _repo.addItems(_normalized, source: 'receipt');
+    
+    // Save each ingredient with its quantity and unit
+    for (final ingredient in _ingredientsWithQuantity) {
+      await _repo.addItem(
+        ingredient.name,
+        quantity: ingredient.quantity,
+        unit: ingredient.unit,
+        source: 'receipt',
+      );
+    }
+    
     setState(() => _loading = false);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ingredientes guardados en tu alacena')),
+        SnackBar(content: Text('${_ingredientsWithQuantity.length} ingredientes guardados en tu alacena')),
       );
+      // Reset state
+      setState(() {
+        _image = null;
+        _normalized = [];
+        _ingredientsWithQuantity = [];
+        _rawText = '';
+        _candidates = [];
+      });
     }
   }
 
@@ -81,9 +115,22 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
       // Filtrar ruido administrativo de la salida del AI
       final filtered = ReceiptParser.cleanCandidates(aiCandidates);
       final normalized = IngredientNormalizer.normalize(filtered);
+      
+      // Create Ingredient objects with default quantity/unit
+      final ingredientsWithQty = normalized.map((name) => Ingredient(
+        id: name.toLowerCase(),
+        name: name,
+        quantity: 1.0,
+        unit: 'unidad',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        source: 'receipt',
+      )).toList();
+      
       setState(() {
         _candidates = filtered;
         _normalized = normalized;
+        _ingredientsWithQuantity = ingredientsWithQty;
       });
     } catch (e) {
       if (mounted) {
@@ -309,25 +356,44 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _normalized
-                          .map((e) => Chip(
-                                label: Text(
-                                  e,
-                                  style: const TextStyle(
-                                    color: AppTheme.foreground,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                backgroundColor: AppTheme.primaryLight.withOpacity(0.2),
-                                side: BorderSide(
-                                  color: AppTheme.primaryLight.withOpacity(0.4),
-                                ),
-                              ))
-                          .toList(),
-                    ),
+                    _ingredientsWithQuantity.isNotEmpty
+                        ? Column(
+                            children: _ingredientsWithQuantity
+                                .asMap()
+                                .entries
+                                .map((entry) {
+                              final index = entry.key;
+                              final ing = entry.value;
+                              return _IngredientEditTile(
+                                ingredient: ing,
+                                commonUnits: commonUnits,
+                                onChanged: (updated) {
+                                  setState(() {
+                                    _ingredientsWithQuantity[index] = updated;
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          )
+                        : Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _normalized
+                                .map((e) => Chip(
+                                      label: Text(
+                                        e,
+                                        style: const TextStyle(
+                                          color: AppTheme.foreground,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      backgroundColor: AppTheme.primaryLight.withOpacity(0.2),
+                                      side: BorderSide(
+                                        color: AppTheme.primaryLight.withOpacity(0.4),
+                                      ),
+                                    ))
+                                .toList(),
+                          ),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
@@ -420,6 +486,147 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+/// Widget para editar cantidad y unidad de un ingrediente
+class _IngredientEditTile extends StatefulWidget {
+  final Ingredient ingredient;
+  final List<String> commonUnits;
+  final void Function(Ingredient) onChanged;
+
+  const _IngredientEditTile({
+    required this.ingredient,
+    required this.commonUnits,
+    required this.onChanged,
+  });
+
+  @override
+  State<_IngredientEditTile> createState() => _IngredientEditTileState();
+}
+
+class _IngredientEditTileState extends State<_IngredientEditTile> {
+  late TextEditingController _quantityController;
+  late String _selectedUnit;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantityController = TextEditingController(text: widget.ingredient.quantity.toString());
+    _selectedUnit = widget.ingredient.unit;
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: AppTheme.primaryLight.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.ingredient.name,
+              style: const TextStyle(
+                color: AppTheme.foreground,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                // Cantidad input
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Cantidad',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _quantityController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          hintText: '1',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        ),
+                        onChanged: (value) {
+                          final qty = double.tryParse(value) ?? 1.0;
+                          widget.onChanged(widget.ingredient.copyWith(quantity: qty));
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Unidad dropdown
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Unidad',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButton<String>(
+                        value: _selectedUnit,
+                        isExpanded: true,
+                        underline: Container(
+                          height: 1,
+                          color: AppTheme.primaryLight.withOpacity(0.3),
+                        ),
+                        items: widget.commonUnits
+                            .map((unit) => DropdownMenuItem(
+                                  value: unit,
+                                  child: Text(unit, style: const TextStyle(fontSize: 13)),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _selectedUnit = value);
+                            widget.onChanged(widget.ingredient.copyWith(unit: value));
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
