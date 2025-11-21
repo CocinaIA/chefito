@@ -720,6 +720,52 @@ class _RecipesScreenState extends State<RecipesScreen> {
   }
 
   // Mark recipe as used and update stock in Firebase
+  /// Convert between different units of measurement
+  /// Returns the converted quantity, or null if conversion is not possible
+  double? _convertUnits(double quantity, String fromUnit, String toUnit) {
+    if (fromUnit.toLowerCase() == toUnit.toLowerCase()) {
+      return quantity;
+    }
+
+    final from = fromUnit.toLowerCase().trim();
+    final to = toUnit.toLowerCase().trim();
+
+    // Weight conversions (g <-> kg)
+    if ((from == 'g' && to == 'kg') || (from == 'gramos' && to == 'kg')) {
+      return quantity / 1000;
+    }
+    if ((from == 'kg' && to == 'g') || (from == 'kg' && to == 'gramos')) {
+      return quantity * 1000;
+    }
+
+    // Volume conversions (ml <-> l)
+    if ((from == 'ml' && to == 'l') || (from == 'mililitros' && to == 'l')) {
+      return quantity / 1000;
+    }
+    if ((from == 'l' && to == 'ml') || (from == 'l' && to == 'mililitros')) {
+      return quantity * 1000;
+    }
+
+    // Tablespoon to ml (1 cucharada = 15ml aprox)
+    if ((from == 'cucharada' || from == 'cucharadas') && (to == 'ml' || to == 'mililitros')) {
+      return quantity * 15;
+    }
+    if ((to == 'cucharada' || to == 'cucharadas') && (from == 'ml' || from == 'mililitros')) {
+      return quantity / 15;
+    }
+
+    // Cup to ml (1 taza = 240ml aprox)
+    if ((from == 'taza' || from == 'tazas') && (to == 'ml' || to == 'mililitros')) {
+      return quantity * 240;
+    }
+    if ((to == 'taza' || to == 'tazas') && (from == 'ml' || from == 'mililitros')) {
+      return quantity / 240;
+    }
+
+    // For "unidad" we cannot convert
+    return null;
+  }
+
   Future<void> _markRecipeAsUsed(String recipeName, List<String> usedIngredients) async {
     if (usedIngredients.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -767,17 +813,24 @@ class _RecipesScreenState extends State<RecipesScreen> {
           continue;
         }
 
-        // If recipe unit matches pantry unit, consume exact amount
-        // Otherwise, try a reasonable conversion or consume proportionally
+        // Calculate consume amount with unit conversion
         double consumeAmount;
         
         if (recipeUnit.toLowerCase() == matchingIngredient.unit.toLowerCase()) {
           // Same unit: consume exactly what the recipe says
           consumeAmount = recipeQuantity;
+          debugPrint('✅ Unidades iguales: consumiendo exactamente $consumeAmount ${matchingIngredient.unit}');
         } else {
-          // Different units: consume proportionally (1/3 of what's available)
-          consumeAmount = (matchingIngredient.quantity / 3).clamp(1.0, matchingIngredient.quantity);
-          debugPrint('⚠️ Unidades diferentes (receta: $recipeUnit, pantry: ${matchingIngredient.unit}). Consumiendo proporcionalmente.');
+          // Try to convert recipe quantity to pantry unit
+          final converted = _convertUnits(recipeQuantity, recipeUnit, matchingIngredient.unit);
+          if (converted != null) {
+            consumeAmount = converted;
+            debugPrint('✅ Conversión exitosa: $recipeQuantity $recipeUnit = $consumeAmount ${matchingIngredient.unit}');
+          } else {
+            // Conversion not possible, consume proportionally as fallback
+            consumeAmount = (matchingIngredient.quantity / 3).clamp(1.0, matchingIngredient.quantity);
+            debugPrint('⚠️ No se pudo convertir $recipeUnit a ${matchingIngredient.unit}. Consumiendo proporcionalmente 1/3: $consumeAmount ${matchingIngredient.unit}');
+          }
         }
         
         debugPrint('✅ Consumiendo $consumeAmount ${matchingIngredient.unit} de ${matchingIngredient.name}');
