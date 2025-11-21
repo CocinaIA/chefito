@@ -226,8 +226,8 @@ class _RecipesScreenState extends State<RecipesScreen> {
             fontSize: 13,
           ),
         ),
-        collapsedBackgroundColor: AppTheme.primaryLight.withOpacity(0.05),
-        backgroundColor: AppTheme.primaryLight.withOpacity(0.05),
+        collapsedBackgroundColor: AppTheme.primaryLight.withValues(alpha: 0.05),
+        backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.05),
         iconColor: AppTheme.primary,
         collapsedIconColor: AppTheme.primary,
         childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -263,12 +263,6 @@ class _RecipesScreenState extends State<RecipesScreen> {
         ],
       ),
     );
-  }
-
-  Widget _aiTile(Map<String, dynamic> r) {
-    // This method is now replaced by _aiTileWithAnimation
-    // Kept for backwards compatibility but not used
-    return const SizedBox.shrink();
   }
 
   Widget _aiTileWithAnimation(Map<String, dynamic> r, int index) {
@@ -414,7 +408,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: getDifficultyColor(difficulty).withOpacity(0.2),
+                    color: getDifficultyColor(difficulty).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -652,13 +646,13 @@ class _RecipesScreenState extends State<RecipesScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [gradientPair[0].withOpacity(0.1), gradientPair[1].withOpacity(0.1)],
+                colors: [gradientPair[0].withValues(alpha: 0.1), gradientPair[1].withValues(alpha: 0.1)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: gradientPair[0].withOpacity(0.3),
+                color: gradientPair[0].withValues(alpha: 0.3),
               ),
             ),
             child: Row(
@@ -808,11 +802,6 @@ class _RecipesScreenState extends State<RecipesScreen> {
           continue;
         }
 
-        if (matchingIngredient == null) {
-          debugPrint('❌ No encontrado: $ingredientName');
-          continue;
-        }
-
         // Calculate consume amount with unit conversion
         double consumeAmount;
         
@@ -885,7 +874,7 @@ class _IngredientChip extends StatelessWidget {
         color: backgroundColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: textColor.withOpacity(0.3),
+          color: textColor.withValues(alpha: 0.3),
           width: 1.5,
         ),
       ),
@@ -910,7 +899,7 @@ class _IngredientChip extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: textColor.withOpacity(0.15),
+                color: textColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
