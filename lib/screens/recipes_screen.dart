@@ -730,23 +730,37 @@ class _RecipesScreenState extends State<RecipesScreen> {
 
     try {
       for (final ingredientName in usedIngredients) {
-        // Find the ingredient in our list
-        final ingredient = _ingredients.firstWhere(
-          (ing) => ing.baseIngredient.toLowerCase() == ingredientName.toLowerCase(),
-          orElse: () => Ingredient(
-            id: ingredientName.toLowerCase(),
-            name: ingredientName,
-            quantity: 1.0,
-            unit: 'unidad',
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          ),
-        );
+        debugPrint('🔍 Buscando ingrediente: $ingredientName');
+        
+        // Normalize the ingredient name for searching
+        final normalizedName = ingredientName.toLowerCase().trim();
+        
+        // Find the ingredient in our list - search by name
+        Ingredient? matchingIngredient;
+        try {
+          matchingIngredient = _ingredients.firstWhere(
+            (ing) => ing.baseIngredient.toLowerCase() == normalizedName ||
+                     ing.name.toLowerCase().contains(normalizedName) ||
+                     normalizedName.contains(ing.name.toLowerCase()),
+          );
+        } catch (e) {
+          debugPrint('⚠️ No se encontró ingrediente: $ingredientName');
+          debugPrint('📋 Ingredientes disponibles: ${_ingredients.map((i) => i.name).join(', ')}');
+          continue;
+        }
 
-        // Try to consume 1 unit or reasonable amount
-        final consumeAmount = ingredient.unit == 'unidad' ? 1.0 : 0.5;
-        await _repo.consumeIngredient(ingredient.id, consumeAmount);
-        debugPrint('🔥 Consumed ${consumeAmount} ${ingredient.unit} of ${ingredient.name}');
+        if (matchingIngredient == null) {
+          debugPrint('❌ No se pudo encontrar: $ingredientName');
+          continue;
+        }
+
+        // Consume a reasonable amount based on unit
+        // For unitless items (unidad): consume 1
+        // For measured items: consume 0.5 of the unit
+        final consumeAmount = matchingIngredient.unit == 'unidad' ? 1.0 : 0.5;
+        
+        debugPrint('✅ Consumiendo ${consumeAmount} ${matchingIngredient.unit} de ${matchingIngredient.name}');
+        await _repo.consumeIngredient(matchingIngredient.id, consumeAmount);
       }
 
       // Reload pantry
@@ -761,6 +775,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
         );
       }
     } catch (e) {
+      debugPrint('❌ Error general: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al actualizar stock: $e')),
