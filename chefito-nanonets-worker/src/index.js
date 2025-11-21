@@ -96,7 +96,7 @@ JSON structure MUST be exactly:
       "servings": "number of servings",
       "time": "total cooking time (e.g., 30 minutes)",
       "difficulty": "easy/medium/hard",
-      "used": ["ingredient1", "ingredient2"],
+      "used": ["300g arroz", "2 huevos", "100ml aceite", "1 cebolla"],
       "missing": ["optional ingredient for better taste"],
       "steps": [
         "STEP 1 (PREPARATION): Specific details on what to cut, how to prepare. Be very specific about sizes and techniques.",
@@ -116,9 +116,12 @@ CRITICAL REQUIREMENTS:
 - Describe visual/sensory cues (color, smell, texture, sound)
 - Be specific about cutting/chopping sizes (diced, minced, thinly sliced, etc)
 - Include professional cooking techniques and terminology
+- CRITICAL: "used" array MUST include EXACT QUANTITIES with units (e.g., "300g arroz", "2 huevos", "100ml aceite")
+- Format for "used": "QUANTITY UNIT INGREDIENT" (e.g., "50g mantequilla", "3 dientes ajo", "250ml leche")
+- Do NOT include ranges in quantities (use exact: "300g" not "300-350g")
 - Maximum ${max} recipes
 - Maximize use of available ingredients
-- Each recipe must have at least 4 detailed steps and 1 used ingredient
+- Each recipe must have at least 4 detailed steps and 1 used ingredient with quantity
 - Include serving size and total time
 - Difficulty level: easy (no special skills), medium (basic cooking skills), hard (advanced techniques)
 Available ingredients: ${ingredients.join(', ')}

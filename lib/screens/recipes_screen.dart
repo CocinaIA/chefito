@@ -729,36 +729,58 @@ class _RecipesScreenState extends State<RecipesScreen> {
     }
 
     try {
-      for (final ingredientName in usedIngredients) {
-        debugPrint('🔍 Buscando ingrediente: $ingredientName');
+      for (final ingredientWithQuantity in usedIngredients) {
+        debugPrint('🔍 Procesando: $ingredientWithQuantity');
         
-        // Normalize the ingredient name for searching
-        final normalizedName = ingredientName.toLowerCase().trim();
+        // Parse the ingredient string to extract quantity, unit, and name
+        // Format: "300g arroz", "2 huevos", "100ml aceite", "1 cebolla"
+        final match = RegExp(r'^(\d+(?:\.\d+)?)\s*([a-záéíóúñ\s]*?)\s+(.+)$')
+            .firstMatch(ingredientWithQuantity.trim());
         
-        // Find the ingredient in our list - search by name
+        if (match == null) {
+          debugPrint('⚠️ No se pudo parsear: $ingredientWithQuantity');
+          continue;
+        }
+
+        final recipeQuantity = double.tryParse(match.group(1) ?? '0') ?? 0;
+        final recipeUnit = (match.group(2) ?? '').trim();
+        final ingredientName = (match.group(3) ?? '').toLowerCase().trim();
+        
+        debugPrint('📊 Parsado: $recipeQuantity $recipeUnit de $ingredientName');
+
+        // Find the ingredient in our pantry
         Ingredient? matchingIngredient;
         try {
           matchingIngredient = _ingredients.firstWhere(
-            (ing) => ing.baseIngredient.toLowerCase() == normalizedName ||
-                     ing.name.toLowerCase().contains(normalizedName) ||
-                     normalizedName.contains(ing.name.toLowerCase()),
+            (ing) => ing.baseIngredient.toLowerCase() == ingredientName ||
+                     ing.name.toLowerCase().contains(ingredientName) ||
+                     ingredientName.contains(ing.name.toLowerCase()),
           );
         } catch (e) {
           debugPrint('⚠️ No se encontró ingrediente: $ingredientName');
-          debugPrint('📋 Ingredientes disponibles: ${_ingredients.map((i) => '${i.name} (${i.quantity} ${i.unit})').join(', ')}');
+          debugPrint('📋 Disponibles: ${_ingredients.map((i) => '${i.name} (${i.quantity}${i.unit})').join(', ')}');
           continue;
         }
 
         if (matchingIngredient == null) {
-          debugPrint('❌ No se pudo encontrar: $ingredientName');
+          debugPrint('❌ No encontrado: $ingredientName');
           continue;
         }
 
-        // Calculate consumption based on quantity available
-        // Consume 1/3 of what's available, minimum 1 unit
-        final consumeAmount = (matchingIngredient.quantity / 3).clamp(1.0, matchingIngredient.quantity);
+        // If recipe unit matches pantry unit, consume exact amount
+        // Otherwise, try a reasonable conversion or consume proportionally
+        double consumeAmount;
         
-        debugPrint('✅ Consumiendo ${consumeAmount.toStringAsFixed(2)} ${matchingIngredient.unit} de ${matchingIngredient.name} (tenía ${matchingIngredient.quantity})');
+        if (recipeUnit.toLowerCase() == matchingIngredient.unit.toLowerCase()) {
+          // Same unit: consume exactly what the recipe says
+          consumeAmount = recipeQuantity;
+        } else {
+          // Different units: consume proportionally (1/3 of what's available)
+          consumeAmount = (matchingIngredient.quantity / 3).clamp(1.0, matchingIngredient.quantity);
+          debugPrint('⚠️ Unidades diferentes (receta: $recipeUnit, pantry: ${matchingIngredient.unit}). Consumiendo proporcionalmente.');
+        }
+        
+        debugPrint('✅ Consumiendo $consumeAmount ${matchingIngredient.unit} de ${matchingIngredient.name}');
         await _repo.consumeIngredient(matchingIngredient.id, consumeAmount);
       }
 
