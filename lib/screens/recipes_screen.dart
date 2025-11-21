@@ -745,7 +745,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
           );
         } catch (e) {
           debugPrint('⚠️ No se encontró ingrediente: $ingredientName');
-          debugPrint('📋 Ingredientes disponibles: ${_ingredients.map((i) => i.name).join(', ')}');
+          debugPrint('📋 Ingredientes disponibles: ${_ingredients.map((i) => '${i.name} (${i.quantity} ${i.unit})').join(', ')}');
           continue;
         }
 
@@ -754,12 +754,11 @@ class _RecipesScreenState extends State<RecipesScreen> {
           continue;
         }
 
-        // Consume a reasonable amount based on unit
-        // For unitless items (unidad): consume 1
-        // For measured items: consume 0.5 of the unit
-        final consumeAmount = matchingIngredient.unit == 'unidad' ? 1.0 : 0.5;
+        // Calculate consumption based on quantity available
+        // Consume 1/3 of what's available, minimum 1 unit
+        final consumeAmount = (matchingIngredient.quantity / 3).clamp(1.0, matchingIngredient.quantity);
         
-        debugPrint('✅ Consumiendo ${consumeAmount} ${matchingIngredient.unit} de ${matchingIngredient.name}');
+        debugPrint('✅ Consumiendo ${consumeAmount.toStringAsFixed(2)} ${matchingIngredient.unit} de ${matchingIngredient.name} (tenía ${matchingIngredient.quantity})');
         await _repo.consumeIngredient(matchingIngredient.id, consumeAmount);
       }
 
