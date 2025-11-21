@@ -12,6 +12,24 @@ class PantryScreen extends StatefulWidget {
   State<PantryScreen> createState() => _PantryScreenState();
 }
 
+/// Helper to expand unit abbreviations to full names
+String _expandUnit(String unit) {
+  if (unit.isEmpty) return '';
+  
+  final unitMap = {
+    'g': 'gramos',
+    'kg': 'kilogramos',
+    'ml': 'mililitros',
+    'l': 'litros',
+    'cucharada': 'cucharadas',
+    'taza': 'tazas',
+    'unidad': 'unidad',
+  };
+  
+  final lowerUnit = unit.toLowerCase().trim();
+  return unitMap[lowerUnit] ?? unit;
+}
+
 /// Helper to parse ingredient string and extract quantity/unit
 Map<String, String> _parseIngredientDisplay(String ingredient) {
   // Try to match patterns like "50 g arroz", "3 unidad tomate", etc.
@@ -168,6 +186,9 @@ class _PantryScreenState extends State<PantryScreen> {
       );
     }
 
+    // Expand unit abbreviations (g -> gramos, ml -> mililitros, etc)
+    final expandedUnit = _expandUnit(unit);
+
     return Row(
       children: [
         Expanded(
@@ -185,15 +206,15 @@ class _PantryScreenState extends State<PantryScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: AppTheme.primary.withOpacity(0.15),
+            color: AppTheme.primary.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: AppTheme.primary.withOpacity(0.3),
+              color: AppTheme.primary.withValues(alpha: 0.3),
               width: 1,
             ),
           ),
           child: Text(
-            '$quantity $unit'.trim(),
+            '$quantity $expandedUnit'.trim(),
             style: const TextStyle(
               color: AppTheme.primary,
               fontWeight: FontWeight.bold,

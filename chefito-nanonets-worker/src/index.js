@@ -84,49 +84,51 @@ async function handleGenerateRecipes(request, env) {
 		return json({ error: 'Missing GOOGLE_API_KEY' }, 500);
 	}
 
-	// Prompt con contrato JSON mejorado para recetas detalladas
-	const prompt = `You are an expert culinary chef. Create DETAILED, SPECIFIC recipes.
-Respond ONLY with valid JSON. NO markdown, NO code fences.
-JSON structure MUST be exactly:
+	// Prompt con contrato JSON mejorado para recetas detalladas EN ESPAÑOL
+	const prompt = `Eres un chef experto. Crea recetas DETALLADAS, ESPECÍFICAS y COMPLETAS en español.
+Responde SOLO con JSON válido. SIN markdown, SIN comillas invertidas.
+Estructura JSON EXACTA:
 {
   "recipes": [
     {
-      "title": "Recipe name",
-      "description": "1-2 line description of the dish",
-      "servings": "number of servings",
-      "time": "total cooking time (e.g., 30 minutes)",
-      "difficulty": "easy/medium/hard",
+      "title": "Nombre de la receta",
+      "description": "Descripción de 1-2 líneas del plato",
+      "servings": "número de porciones",
+      "time": "tiempo total de cocción (ej: 30 minutos)",
+      "difficulty": "fácil/medio/difícil",
       "used": ["300g arroz", "2 huevos", "100ml aceite", "1 cebolla"],
-      "missing": ["optional ingredient for better taste"],
+      "missing": ["ingrediente opcional para mejor sabor"],
       "steps": [
-        "STEP 1 (PREPARATION): Specific details on what to cut, how to prepare. Be very specific about sizes and techniques.",
-        "STEP 2 (COOKING): Exact temperatures, times, and what to look for. Example: 'Heat oil to 180°C (or until shimmering), add ingredients...'",
-        "STEP 3 (CONTINUATION): More specific instructions with temperatures and timing",
-        "STEP 4 (FINISHING): Final touches and plating instructions"
+        "PASO 1 (PREPARACIÓN): Descripción muy específica de qué cortar, cómo preparar. Incluye tamaños exactos (dados, picado fino, rodajas de 1cm, etc). Tiempo estimado.",
+        "PASO 2 (COCCIÓN): Temperaturas exactas, tiempos precisos, y qué buscar. Ejemplo: 'Calienta el aceite a 180°C (o hasta que brille), agrega ingredientes y fríe durante 3-4 minutos hasta que...'",
+        "PASO 3 (CONTINUACIÓN): Instrucciones detalladas con temperaturas, tiempos específicos y señales sensoriales (color, olor, textura)",
+        "PASO 4 (ACABADO): Toques finales, presentación y cómo servir",
+        "PASO 5 (OPCIONAL): Pasos adicionales si se necesitan para completar la receta"
       ],
-      "tips": ["Professional tips for best results", "Common mistakes to avoid"],
-      "variations": ["Alternative ingredient substitutions", "Different cooking methods"]
+      "tips": ["Consejo profesional 1", "Error común a evitar", "Variación de sabor"],
+      "variations": ["Sustitución de ingredientes alternativa", "Método de cocción diferente"]
     }
   ]
 }
-CRITICAL REQUIREMENTS:
-- Each step MUST be 2-3 sentences with SPECIFIC temperatures, times, techniques, and what to observe
-- Include exact cooking temperatures (Celsius) when relevant
-- Include timing for each step (e.g., "cook for 8-10 minutes until golden")
-- Describe visual/sensory cues (color, smell, texture, sound)
-- Be specific about cutting/chopping sizes (diced, minced, thinly sliced, etc)
-- Include professional cooking techniques and terminology
-- CRITICAL: "used" array MUST include EXACT QUANTITIES with units (e.g., "300g arroz", "2 huevos", "100ml aceite")
-- Format for "used": "QUANTITY UNIT INGREDIENT" (e.g., "50g mantequilla", "3 dientes ajo", "250ml leche")
-- Do NOT include ranges in quantities (use exact: "300g" not "300-350g")
-- Maximum ${max} recipes
-- Maximize use of available ingredients
-- Each recipe must have at least 4 detailed steps and 1 used ingredient with quantity
-- Include serving size and total time
-- Difficulty level: easy (no special skills), medium (basic cooking skills), hard (advanced techniques)
-Available ingredients: ${ingredients.join(', ')}
-Preferences: ${JSON.stringify(prefs)}
-Respond with ONLY the JSON. Nothing else. No explanations.`;
+REQUISITOS CRÍTICOS:
+- Responde EN ESPAÑOL. Todos los pasos, títulos y descripciones deben estar en español.
+- Cada paso DEBE ser completo (3-4 oraciones mínimo) con detalles específicos
+- Incluye temperaturas exactas en Celsius cuando sea relevante
+- Incluye tiempos precisos para cada paso (ej: "cocina durante 8-10 minutos hasta que esté dorado")
+- Describe señales sensoriales: color, olor, textura, sonido (ej: "escucharás un chasquido", "debe oler intenso")
+- Sé muy específico en los cortes: dados, picado fino, rodajas de 1cm, juliana, etc.
+- Incluye técnicas profesionales de cocina
+- CRÍTICO: Array "used" DEBE incluir CANTIDADES EXACTAS con unidades (ej: "300g arroz", "2 huevos", "100ml aceite")
+- Formato "used": "CANTIDAD UNIDAD INGREDIENTE" (ej: "50g mantequilla", "3 dientes ajo", "250ml leche")
+- NO incluyas rangos (usa "300g" no "300-350g")
+- Máximo ${max} recetas
+- Maximiza el uso de ingredientes disponibles
+- Cada receta debe tener al menos 5 pasos detallados y 1 ingrediente con cantidad
+- Incluye tamaño de porción y tiempo total
+- Nivel de dificultad: fácil (sin habilidades especiales), medio (habilidades básicas), difícil (técnicas avanzadas)
+Ingredientes disponibles: ${ingredients.join(', ')}
+Preferencias: ${JSON.stringify(prefs)}
+Responde SOLO con el JSON. Nada más. Sin explicaciones.`;
 
 	// Build request payload once
 	const payload = {

@@ -468,7 +468,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
                     return _IngredientChip(
                       name: parts['name'] ?? ingredient,
                       quantity: parts['quantity'] ?? '',
-                      unit: parts['unit'] ?? '',
+                      unit: _expandUnit(parts['unit'] ?? ''),
                       backgroundColor: Colors.green.shade100,
                       textColor: Colors.green.shade700,
                     );
@@ -499,7 +499,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
                     return _IngredientChip(
                       name: parts['name'] ?? ingredient,
                       quantity: parts['quantity'] ?? '',
-                      unit: parts['unit'] ?? '',
+                      unit: _expandUnit(parts['unit'] ?? ''),
                       backgroundColor: Colors.orange.shade100,
                       textColor: Colors.orange.shade700,
                     );
@@ -693,6 +693,24 @@ class _RecipesScreenState extends State<RecipesScreen> {
         ],
       ),
     );
+  }
+
+  /// Expand unit abbreviations to full names
+  String _expandUnit(String unit) {
+    if (unit.isEmpty) return '';
+    
+    final unitMap = {
+      'g': 'gramos',
+      'kg': 'kilogramos',
+      'ml': 'mililitros',
+      'l': 'litros',
+      'cucharada': 'cucharadas',
+      'taza': 'tazas',
+      'unidad': 'unidad',
+    };
+    
+    final lowerUnit = unit.toLowerCase().trim();
+    return unitMap[lowerUnit] ?? unit;
   }
 
   /// Parse ingredient string to extract name, quantity, and unit
