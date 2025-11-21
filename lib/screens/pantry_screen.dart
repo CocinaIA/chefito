@@ -71,7 +71,16 @@ class _PantryScreenState extends State<PantryScreen> {
     final quantityController = TextEditingController(text: '1');
     String selectedUnit = 'unidad';
     
-    final commonUnits = ['unidad', 'g', 'kg', 'ml', 'l', 'cucharada', 'taza'];
+    // Unidades con nombre corto (para almacenamiento) y nombre largo (para display)
+    final unitOptions = {
+      'unidad': 'unidad',
+      'g': 'gramos',
+      'kg': 'kilogramos',
+      'ml': 'mililitros',
+      'l': 'litros',
+      'cucharada': 'cucharadas',
+      'taza': 'tazas',
+    };
     
     final result = await showDialog<Map<String, dynamic>?>(
       context: context,
@@ -126,8 +135,11 @@ class _PantryScreenState extends State<PantryScreen> {
                 DropdownButton<String>(
                   value: selectedUnit,
                   isExpanded: true,
-                  items: commonUnits
-                      .map((unit) => DropdownMenuItem(value: unit, child: Text(unit)))
+                  items: unitOptions.entries
+                      .map((entry) => DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(entry.value),
+                      ))
                       .toList(),
                   onChanged: (value) {
                     setState(() => selectedUnit = value ?? 'unidad');
@@ -318,7 +330,7 @@ class _PantryScreenState extends State<PantryScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                     side: BorderSide(
-                      color: AppTheme.primaryLight.withOpacity(0.3),
+                      color: AppTheme.primaryLight.withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),
@@ -332,7 +344,7 @@ class _PantryScreenState extends State<PantryScreen> {
                     title: _buildIngredientDisplay(name),
                     trailing: Icon(
                       Icons.swipe_left,
-                      color: AppTheme.textSecondary.withOpacity(0.5),
+                      color: AppTheme.textSecondary.withValues(alpha: 0.5),
                       size: 18,
                     ),
                   ),
