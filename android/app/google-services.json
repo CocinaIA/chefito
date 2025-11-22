@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "622666613815",
+    "project_id": "chefito-74733",
+    "storage_bucket": "chefito-74733.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:622666613815:android:a0198e30cb18f5865b2bb2",
+        "android_client_info": {
+          "package_name": "com.chefito.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyARzX_kSCdlyiLvvOjeu_C8PY-g63eTHrc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
