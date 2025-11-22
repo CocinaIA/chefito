@@ -24,6 +24,8 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
   bool _loading = false;
   List<String> _normalized = [];
   List<Ingredient> _ingredientsWithQuantity = [];
+  String _rawText = '';
+  List<String> _candidates = [];
   final _repo = PantryRepository();
   final _ai = ReceiptAIService();
   final commonUnits = ['unidad', 'g', 'kg', 'ml', 'l', 'cucharada', 'taza'];
@@ -173,8 +175,21 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
       final filtered = ReceiptParser.cleanCandidates(aiCandidates);
       final normalized = IngredientNormalizer.normalize(filtered);
       
+      // Create Ingredient objects with default quantity/unit
+      final ingredientsWithQty = normalized.map((name) => Ingredient(
+        id: name.toLowerCase(),
+        name: name,
+        quantity: 1.0,
+        unit: 'unidad',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        source: 'receipt',
+      )).toList();
+      
       setState(() {
         _normalized = normalized;
+        _ingredientsWithQuantity = ingredientsWithQty;
+        _candidates = filtered;
       });
       
       if (mounted) {
@@ -185,7 +200,9 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                 children: [
                   const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
                   const SizedBox(width: 8),
-                  Text('✓ ${normalized.length} ingredientes con IA Avanzada'),
+                  Expanded(
+                    child: Text('✓ ${normalized.length} ingredientes detectados con IA Avanzada'),
+                  ),
                 ],
               ),
               backgroundColor: AppTheme.primary,
@@ -435,16 +452,38 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                     ),
                   ],
 
-                  if (_image != null && _normalized.isEmpty) ...[
+                  // Botón de escaneo avanzado con IA siempre disponible cuando hay imagen
+                  if (_image != null) ...[
                     const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: _runProxy,
-                      icon: const Icon(Icons.cloud_queue_rounded),
-                      label: const Text('Escaneo Avanzado (IA)'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                        foregroundColor: Colors.white,
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: _runProxy,
+                        icon: const Icon(Icons.auto_awesome),
+                        label: Text(
+                          _normalized.isEmpty 
+                            ? 'Escaneo Avanzado con IA' 
+                            : 'Re-escanear con IA Avanzada',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primary,
+                          side: BorderSide(color: AppTheme.primary, width: 2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '💡 Usa Nanonets para mejor detección de ingredientes y cantidades',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
 

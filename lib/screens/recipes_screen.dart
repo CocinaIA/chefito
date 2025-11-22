@@ -79,6 +79,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
     setState(() => _aiLoading = true);
     try {
       // Send ingredients WITH quantities to AI
+      // Using 5 recipes instead of 8 to reduce server errors (less data = less truncation)
       final out = await _ai.generate(
         ingredients: _pantry,
         ingredientsWithQuantity: _ingredients,
@@ -117,12 +118,49 @@ class _RecipesScreenState extends State<RecipesScreen> {
         actions: [
           IconButton(
             onPressed: () async {
-              await AIRecipesStorage.clearRecipes();
-              if (mounted) {
-                setState(() => _aiRecipes = []);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Recetas IA borradas')),
-                );
+              // Show confirmation dialog
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 28),
+                      const SizedBox(width: 12),
+                      const Text('¿Eliminar recetas?'),
+                    ],
+                  ),
+                  content: const Text(
+                    'Se borrarán todas las recetas generadas por IA. Esta acción no se puede deshacer.',
+                    style: TextStyle(fontSize: 15),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Cancelar'),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('Sí, eliminar'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                await AIRecipesStorage.clearRecipes();
+                if (mounted) {
+                  setState(() => _aiRecipes = []);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Recetas IA eliminadas'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
               }
             },
             icon: const Icon(Icons.delete_outline),
@@ -155,7 +193,6 @@ class _RecipesScreenState extends State<RecipesScreen> {
           : ListView(
               padding: const EdgeInsets.symmetric(vertical: 16),
               children: [
-<<<<<<< HEAD
                 // Botón prominente de IA
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -166,19 +203,6 @@ class _RecipesScreenState extends State<RecipesScreen> {
                           AppTheme.primary,
                           AppTheme.primaryDark,
                         ],
-=======
-                if (!hasCatalogRecipes && !hasAIRecipes)
-                  _Empty(matches: _matches, pantry: displayPantry),
-                if (hasCatalogRecipes) ...[
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text(
-                      'Catálogo',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: AppTheme.foreground,
->>>>>>> bd5e1a4db3b7ca693b2ea8871ff0eedf85548521
                       ),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
@@ -293,13 +317,13 @@ class _RecipesScreenState extends State<RecipesScreen> {
                       ],
                     ),
                   ),
-                  ..._aiRecipes.map(_aiTile),
+                  ..._aiRecipes.asMap().entries.map((entry) => _aiTile(entry.value, entry.key)),
                   const SizedBox(height: 16),
                 ],
                 
                 // Recetas del catálogo
                 if (_matches.isEmpty && _aiRecipes.isEmpty)
-                  _Empty(matches: _matches, pantry: _panryPreview()),
+                  _Empty(matches: _matches, pantry: _pantry.join(', ')),
                   
                 if (_matches.isNotEmpty) ...[
                   Padding(
@@ -332,35 +356,8 @@ class _RecipesScreenState extends State<RecipesScreen> {
                   ),
                   ..._matches.map(_matchTile),
                 ],
-<<<<<<< HEAD
                 
                 const SizedBox(height: 24),
-=======
-                if (_aiLoading)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
-                  ),
-                if (hasAIRecipes) ...[
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text(
-                      'IA (generadas)',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                  ),
-                  ..._aiRecipes.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final recipe = entry.value;
-                    return _aiTileWithAnimation(recipe, index);
-                  }),
-                ],
-                const SizedBox(height: 16),
->>>>>>> bd5e1a4db3b7ca693b2ea8871ff0eedf85548521
               ],
             ),
     );
@@ -444,7 +441,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
     );
   }
 
-  Widget _aiTileWithAnimation(Map<String, dynamic> r, int index) {
+  Widget _aiTile(Map<String, dynamic> r, int index) {
     final title = (r['title'] ?? 'Receta').toString();
     final description = (r['description'] ?? '').toString().trim();
     final servings = (r['servings'] ?? '').toString().trim();
@@ -957,70 +954,309 @@ class _RecipesScreenState extends State<RecipesScreen> {
     return null;
   }
 
+  /// Parse ingredient string with multiple format support
+  /// Formats: "arroz (500g)", "500g arroz", "500 g de arroz", "2 huevos"
+  Map<String, dynamic> _parseIngredientForConsumption(String ingredientStr) {
+    final str = ingredientStr.trim();
+    
+    // Format 1: "arroz (500g)" or "arroz (500 g)"
+    var match = RegExp(r'^(.+?)\s*\((\d+(?:\.\d+)?)\s*([a-záéíóúñ]*)\s*\)$', caseSensitive: false)
+        .firstMatch(str);
+    if (match != null) {
+      return {
+        'name': match.group(1)!.trim().toLowerCase(),
+        'quantity': double.tryParse(match.group(2)!) ?? 0.0,
+        'unit': match.group(3)!.trim().toLowerCase(),
+      };
+    }
+    
+    // Format 2: "500g arroz" or "500 g arroz"
+    match = RegExp(r'^(\d+(?:\.\d+)?)\s*([a-záéíóúñ]*)\s+(.+)$', caseSensitive: false)
+        .firstMatch(str);
+    if (match != null) {
+      return {
+        'name': match.group(3)!.trim().toLowerCase(),
+        'quantity': double.tryParse(match.group(1)!) ?? 0.0,
+        'unit': match.group(2)!.trim().toLowerCase(),
+      };
+    }
+    
+    // Format 3: "500 g de arroz"
+    match = RegExp(r'^(\d+(?:\.\d+)?)\s*([a-záéíóúñ]*)\s+de\s+(.+)$', caseSensitive: false)
+        .firstMatch(str);
+    if (match != null) {
+      return {
+        'name': match.group(3)!.trim().toLowerCase(),
+        'quantity': double.tryParse(match.group(1)!) ?? 0.0,
+        'unit': match.group(2)!.trim().toLowerCase(),
+      };
+    }
+    
+    // Format 4: Just a number and name "2 huevos"
+    match = RegExp(r'^(\d+(?:\.\d+)?)\s+(.+)$', caseSensitive: false)
+        .firstMatch(str);
+    if (match != null) {
+      return {
+        'name': match.group(2)!.trim().toLowerCase(),
+        'quantity': double.tryParse(match.group(1)!) ?? 0.0,
+        'unit': 'unidad',
+      };
+    }
+    
+    // Fallback: just the name, no quantity
+    return {
+      'name': str.toLowerCase(),
+      'quantity': 0.0,
+      'unit': 'unidad',
+    };
+  }
+
+  /// Find matching ingredient in pantry using fuzzy matching
+  Ingredient? _findIngredientInPantry(String searchName) {
+    searchName = searchName.toLowerCase().trim();
+    
+    // Try exact match on baseIngredient first
+    for (final ing in _ingredients) {
+      if (ing.baseIngredient.toLowerCase() == searchName) {
+        return ing;
+      }
+    }
+    
+    // Try exact match on name
+    for (final ing in _ingredients) {
+      if (ing.name.toLowerCase() == searchName) {
+        return ing;
+      }
+    }
+    
+    // Try contains match
+    for (final ing in _ingredients) {
+      if (ing.name.toLowerCase().contains(searchName) || 
+          searchName.contains(ing.name.toLowerCase())) {
+        return ing;
+      }
+    }
+    
+    return null;
+  }
+
+  /// Calculate smart portion based on pantry quantity
+  double _calculateSmartPortion(Ingredient ingredient, int numPeople) {
+    // Base portions per person for common items
+    final portions = {
+      'g': 100.0,      // 100g per person for solid foods
+      'kg': 0.1,       // 100g per person
+      'ml': 150.0,     // 150ml per person for liquids
+      'l': 0.15,       // 150ml per person
+      'unidad': 1.0,   // 1 unit per person
+    };
+    
+    final baseAmount = portions[ingredient.unit.toLowerCase()] ?? 100.0;
+    final totalNeeded = baseAmount * numPeople;
+    
+    // Use minimum between what we need and what we have
+    // But use at least 10% of available stock
+    final minUse = ingredient.quantity * 0.1;
+    final calculated = totalNeeded.clamp(minUse, ingredient.quantity);
+    
+    debugPrint('📊 Calculado inteligente: $calculated ${ingredient.unit} (disponible: ${ingredient.quantity})');
+    return calculated;
+  }
+
   Future<void> _markRecipeAsUsed(String recipeName, List<String> usedIngredients) async {
     if (usedIngredients.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay ingredientes para consumir')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No hay ingredientes para consumir')),
+        );
+      }
       return;
     }
 
-    try {
-      for (final ingredientWithQuantity in usedIngredients) {
-        debugPrint('🔍 Procesando: $ingredientWithQuantity');
-        
-        // Parse the ingredient string to extract quantity, unit, and name
-        // Format: "300g arroz", "2 huevos", "100ml aceite", "1 cebolla"
-        final match = RegExp(r'^(\d+(?:\.\d+)?)\s*([a-záéíóúñ\s]*?)\s+(.+)$')
-            .firstMatch(ingredientWithQuantity.trim());
-        
-        if (match == null) {
-          debugPrint('⚠️ No se pudo parsear: $ingredientWithQuantity');
-          continue;
-        }
+    // Calculate what will be consumed
+    final List<Map<String, dynamic>> consumptionPlan = [];
+    const int numPeople = 2; // Default serving size
+    
+    for (final ingredientStr in usedIngredients) {
+      debugPrint('🔍 Procesando: $ingredientStr');
+      
+      final parsed = _parseIngredientForConsumption(ingredientStr);
+      final ingredientName = parsed['name'] as String;
+      var recipeQuantity = parsed['quantity'] as double;
+      final recipeUnit = parsed['unit'] as String;
+      
+      debugPrint('📊 Parsado: $recipeQuantity $recipeUnit de $ingredientName');
 
-        final recipeQuantity = double.tryParse(match.group(1) ?? '0') ?? 0;
-        final recipeUnit = (match.group(2) ?? '').trim();
-        final ingredientName = (match.group(3) ?? '').toLowerCase().trim();
-        
-        debugPrint('📊 Parsado: $recipeQuantity $recipeUnit de $ingredientName');
+      // Find the ingredient in our pantry
+      final matchingIngredient = _findIngredientInPantry(ingredientName);
+      
+      if (matchingIngredient == null) {
+        debugPrint('⚠️ No se encontró ingrediente: $ingredientName');
+        debugPrint('📋 Disponibles: ${_ingredients.map((i) => i.name).join(', ')}');
+        continue;
+      }
+      
+      // If no quantity provided by AI, calculate smart portion
+      if (recipeQuantity == 0) {
+        recipeQuantity = _calculateSmartPortion(matchingIngredient, numPeople);
+        debugPrint('💡 IA no dio cantidad, usando cálculo inteligente: $recipeQuantity ${matchingIngredient.unit}');
+      }
 
-        // Find the ingredient in our pantry
-        Ingredient? matchingIngredient;
-        try {
-          matchingIngredient = _ingredients.firstWhere(
-            (ing) => ing.baseIngredient.toLowerCase() == ingredientName ||
-                     ing.name.toLowerCase().contains(ingredientName) ||
-                     ingredientName.contains(ing.name.toLowerCase()),
-          );
-        } catch (e) {
-          debugPrint('⚠️ No se encontró ingrediente: $ingredientName');
-          debugPrint('📋 Disponibles: ${_ingredients.map((i) => '${i.name} (${i.quantity}${i.unit})').join(', ')}');
-          continue;
-        }
-
-        // Calculate consume amount with unit conversion
-        double consumeAmount;
-        
-        if (recipeUnit.toLowerCase() == matchingIngredient.unit.toLowerCase()) {
-          // Same unit: consume exactly what the recipe says
-          consumeAmount = recipeQuantity;
-          debugPrint('✅ Unidades iguales: consumiendo exactamente $consumeAmount ${matchingIngredient.unit}');
+      // Calculate consume amount with unit conversion
+      double consumeAmount;
+      String displayUnit = matchingIngredient.unit;
+      
+      if (recipeUnit == matchingIngredient.unit.toLowerCase() || recipeUnit.isEmpty) {
+        // Same unit or no unit specified: use recipe quantity
+        consumeAmount = recipeQuantity;
+        debugPrint('✅ Unidades iguales: $consumeAmount $displayUnit');
+      } else {
+        // Try to convert recipe quantity to pantry unit
+        final converted = _convertUnits(recipeQuantity, recipeUnit, matchingIngredient.unit);
+        if (converted != null) {
+          consumeAmount = converted;
+          debugPrint('✅ Conversión: $recipeQuantity $recipeUnit = $consumeAmount $displayUnit');
         } else {
-          // Try to convert recipe quantity to pantry unit
-          final converted = _convertUnits(recipeQuantity, recipeUnit, matchingIngredient.unit);
-          if (converted != null) {
-            consumeAmount = converted;
-            debugPrint('✅ Conversión exitosa: $recipeQuantity $recipeUnit = $consumeAmount ${matchingIngredient.unit}');
-          } else {
-            // Conversion not possible, consume proportionally as fallback
-            consumeAmount = (matchingIngredient.quantity / 3).clamp(1.0, matchingIngredient.quantity);
-            debugPrint('⚠️ No se pudo convertir $recipeUnit a ${matchingIngredient.unit}. Consumiendo proporcionalmente 1/3: $consumeAmount ${matchingIngredient.unit}');
-          }
+          // Can't convert, use recipe quantity as-is
+          consumeAmount = recipeQuantity;
+          displayUnit = recipeUnit;
+          debugPrint('⚠️ No se pudo convertir, usando $consumeAmount $displayUnit');
         }
+      }
+      
+      // Ensure we don't consume more than available
+      if (consumeAmount > matchingIngredient.quantity) {
+        consumeAmount = matchingIngredient.quantity;
+        debugPrint('⚠️ Ajustado a disponible: $consumeAmount');
+      }
+      
+      consumptionPlan.add({
+        'ingredient': matchingIngredient,
+        'consume': consumeAmount,
+        'displayUnit': _expandUnit(displayUnit),
+        'remaining': matchingIngredient.quantity - consumeAmount,
+      });
+    }
+    
+    if (consumptionPlan.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudieron procesar los ingredientes')),
+        );
+      }
+      return;
+    }
+
+    // Show confirmation dialog
+    if (!mounted) return;
+    
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar receta cocinada'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Se consumirán los siguientes ingredientes:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.foreground,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...consumptionPlan.map((plan) {
+                final ing = plan['ingredient'] as Ingredient;
+                final consume = plan['consume'] as double;
+                final unit = plan['displayUnit'] as String;
+                final remaining = plan['remaining'] as double;
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryLight.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.primary.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          ing.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Usar: $consume $unit',
+                                    style: TextStyle(
+                                      color: Colors.red.shade700,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Queda: ${remaining.toStringAsFixed(1)} ${_expandUnit(ing.unit)}',
+                                    style: TextStyle(
+                                      color: remaining > 0 ? Colors.green.shade700 : Colors.red.shade700,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    // Execute consumption
+    try {
+      for (final plan in consumptionPlan) {
+        final ing = plan['ingredient'] as Ingredient;
+        final consume = plan['consume'] as double;
         
-        debugPrint('✅ Consumiendo $consumeAmount ${matchingIngredient.unit} de ${matchingIngredient.name}');
-        await _repo.consumeIngredient(matchingIngredient.id, consumeAmount);
+        debugPrint('✅ Consumiendo $consume de ${ing.name}');
+        await _repo.consumeIngredient(ing.id, consume);
       }
 
       // Reload pantry
@@ -1030,15 +1266,19 @@ class _RecipesScreenState extends State<RecipesScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('✅ Receta "$recipeName" cocinada. Stock actualizado.'),
+            backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),
         );
       }
     } catch (e) {
-      debugPrint('❌ Error general: $e');
+      debugPrint('❌ Error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al actualizar stock: $e')),
+          SnackBar(
+            content: Text('Error al actualizar stock: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }

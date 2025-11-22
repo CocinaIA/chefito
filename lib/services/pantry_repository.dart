@@ -82,12 +82,17 @@ class PantryRepository {
     final current = Ingredient.fromFirestore(doc.data() as Map<String, dynamic>);
     final newQuantity = (current.quantity - amountToConsume).clamp(0.0, double.infinity);
     
-    await _collection.doc(id).update({
-      'quantity': newQuantity,
-      'updatedAt': DateTime.now(),
-    });
-    
-    debugPrint('🔥 Consumed $amountToConsume from ${current.name}: ${current.quantity} -> $newQuantity');
+    // Si la cantidad llega a 0 o menos, eliminar el ingrediente
+    if (newQuantity <= 0) {
+      await _collection.doc(id).delete();
+      debugPrint('🗑️ Ingrediente ${current.name} eliminado (cantidad llegó a 0)');
+    } else {
+      await _collection.doc(id).update({
+        'quantity': newQuantity,
+        'updatedAt': DateTime.now(),
+      });
+      debugPrint('🔥 Consumed $amountToConsume from ${current.name}: ${current.quantity} -> $newQuantity');
+    }
   }
 
   Future<void> removeItem(String name) async {

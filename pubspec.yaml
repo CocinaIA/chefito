@@ -38,6 +38,7 @@ dependencies:
   camera: ^0.10.6
   lottie: ^3.0.0
   http: ^1.2.2
+  shared_preferences: ^2.3.3
   flutter:
     sdk: flutter
     

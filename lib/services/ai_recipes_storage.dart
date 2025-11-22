@@ -1,33 +1,29 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-
-/// Service to persist AI-generated recipes using browser localStorage
-/// Only works on web platform
+/// Service to persist AI-generated recipes using SharedPreferences
+/// Works on all platforms (web, mobile, desktop)
 class AIRecipesStorage {
   static const _key = 'chefito_ai_recipes';
 
-  /// Save AI recipes to browser localStorage (web only)
+  /// Save AI recipes to storage
   static Future<void> saveRecipes(List<Map<String, dynamic>> recipes) async {
     try {
-      if (!kIsWeb) return;
-      
+      final prefs = await SharedPreferences.getInstance();
       final json = jsonEncode(recipes);
-      html.window.localStorage[_key] = json;
+      await prefs.setString(_key, json);
       debugPrint('💾 Guardadas ${recipes.length} recetas IA ✨');
     } catch (e) {
       debugPrint('❌ Error al guardar recetas: $e');
     }
   }
 
-  /// Load AI recipes from browser localStorage (web only)
+  /// Load AI recipes from storage
   static Future<List<Map<String, dynamic>>> loadRecipes() async {
     try {
-      if (!kIsWeb) return [];
-      
-      final json = html.window.localStorage[_key];
+      final prefs = await SharedPreferences.getInstance();
+      final json = prefs.getString(_key);
       if (json == null || json.isEmpty) return [];
       
       final decoded = jsonDecode(json) as List;
@@ -40,12 +36,11 @@ class AIRecipesStorage {
     }
   }
 
-  /// Clear AI recipes from browser localStorage (web only)
+  /// Clear AI recipes from storage
   static Future<void> clearRecipes() async {
     try {
-      if (!kIsWeb) return;
-      
-      html.window.localStorage.remove(_key);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_key);
       debugPrint('🗑️ Recetas IA eliminadas 👋');
     } catch (e) {
       debugPrint('❌ Error al limpiar recetas: $e');
