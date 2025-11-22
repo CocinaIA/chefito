@@ -12,6 +12,41 @@ class PantryScreen extends StatefulWidget {
   State<PantryScreen> createState() => _PantryScreenState();
 }
 
+/// Helper to expand unit abbreviations to full names
+String _expandUnit(String unit) {
+  if (unit.isEmpty) return '';
+  
+  final unitMap = {
+    'g': 'gramos',
+    'kg': 'kilogramos',
+    'ml': 'mililitros',
+    'l': 'litros',
+    'cucharada': 'cucharadas',
+    'taza': 'tazas',
+    'unidad': 'unidad',
+  };
+  
+  final lowerUnit = unit.toLowerCase().trim();
+  return unitMap[lowerUnit] ?? unit;
+}
+
+/// Helper to parse ingredient string and extract quantity/unit
+Map<String, String> _parseIngredientDisplay(String ingredient) {
+  // Try to match patterns like "50 g arroz", "3 unidad tomate", etc.
+  // Pattern: "quantity unit name" or just "name"
+  final match = RegExp(r'^(\d+(?:\.\d+)?)\s+([a-záéíóúñ\s]*?)\s+(.+)$').firstMatch(ingredient.trim());
+  
+  if (match != null) {
+    return {
+      'quantity': match.group(1)?.trim() ?? '',
+      'unit': match.group(2)?.trim() ?? '',
+      'name': match.group(3)?.trim() ?? ingredient,
+    };
+  }
+  
+  return {'name': ingredient, 'quantity': '', 'unit': ''};
+}
+
 class _PantryScreenState extends State<PantryScreen> {
   final _repo = PantryRepository();
 
@@ -34,199 +69,180 @@ class _PantryScreenState extends State<PantryScreen> {
   Future<void> _addManually() async {
     final nameController = TextEditingController();
     final quantityController = TextEditingController(text: '1');
+    String selectedUnit = 'unidad';
     
-    final result = await showDialog<Map<String, String>?>(
+    // Unidades con nombre corto (para almacenamiento) y nombre largo (para display)
+    final unitOptions = {
+      'unidad': 'unidad',
+      'g': 'gramos',
+      'kg': 'kilogramos',
+      'ml': 'mililitros',
+      'l': 'litros',
+      'cucharada': 'cucharadas',
+      'taza': 'tazas',
+    };
+    
+    final result = await showDialog<Map<String, dynamic>?>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Agregar ingrediente'),
-        contentPadding: const EdgeInsets.all(20),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Ingrediente',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Ej. tomate, cebolla, arroz',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Agregar ingrediente'),
+          contentPadding: const EdgeInsets.all(20),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Ingrediente',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Cantidad',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: quantityController,
-                decoration: InputDecoration(
-                  hintText: 'Ej. 500g, 2kg, 1 unidad',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'Ej. tomate, cebolla, arroz',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, null),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, {
-              'name': nameController.text,
-              'quantity': quantityController.text,
-            }),
-            child: const Text('Agregar'),
-          ),
-        ],
-      ),
-    );
-    
-    if (result == null || result['name']!.isEmpty) return;
-    
-    final normalized = IngredientNormalizer.normalize([result['name']!]);
-    if (normalized.isEmpty) return;
-    
-    // Guardar con cantidad en la descripción
-    final fullName = '${normalized.first}${result['quantity']!.isNotEmpty ? ' (${result['quantity']!})' : ''}';
-    await _repo.addItem(fullName, source: 'manual');
-  }
-
-  Future<void> _editItem(PantryItem item) async {
-    final nameController = TextEditingController(text: item.name);
-    final quantityController = TextEditingController(text: item.quantity.toString());
-    
-    final result = await showDialog<Map<String, String>?>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Editar ingrediente'),
-        contentPadding: const EdgeInsets.all(20),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Nombre del ingrediente',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Ej. tomate, cebolla, arroz',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 16),
+                const Text(
+                  'Cantidad',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: quantityController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    hintText: 'Ej. 500, 2.5, 1',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Cantidad',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: quantityController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  hintText: 'Ej. 1, 2, 3...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                const SizedBox(height: 16),
+                const Text(
+                  'Unidad de medida',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                DropdownButton<String>(
+                  value: selectedUnit,
+                  isExpanded: true,
+                  items: unitOptions.entries
+                      .map((entry) => DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(entry.value),
+                      ))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() => selectedUnit = value ?? 'unidad');
+                  },
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, null),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, {
-              'name': nameController.text,
-              'quantity': quantityController.text,
-            }),
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
-    );
-    
-    if (result == null || result['name']!.isEmpty) return;
-    
-    final newName = result['name']!.trim();
-    final newQuantity = int.tryParse(result['quantity']!) ?? item.quantity;
-    
-    // Si el nombre cambió, verificar que no exista ya
-    if (newName.toLowerCase() != item.name.toLowerCase()) {
-      final exists = await _repo.existsItem(newName);
-      if (exists && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ya existe un ingrediente llamado "$newName"'),
-            backgroundColor: Colors.orange.shade700,
-          ),
-        );
-        return;
-      }
-    }
-    
-    // Eliminar el antiguo y agregar el nuevo
-    await _repo.removeItem(item.name);
-    await _repo.addItem(newName, source: 'edit', quantity: newQuantity);
-    
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Expanded(child: Text('Actualizado: $newName')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, {
+                'name': nameController.text,
+                'quantity': double.tryParse(quantityController.text) ?? 1.0,
+                'unit': selectedUnit,
+              }),
+              child: const Text('Agregar'),
+            ),
           ],
         ),
-        backgroundColor: AppTheme.primary,
-        duration: const Duration(seconds: 2),
       ),
+    );
+    
+    if (result == null || result['name'].isEmpty) return;
+    
+    final normalized = IngredientNormalizer.normalize([result['name']]);
+    if (normalized.isEmpty) return;
+    
+    // Guardar con cantidad y unidad separados
+    await _repo.addItem(
+      normalized.first,
+      quantity: result['quantity'] as double,
+      unit: result['unit'] as String,
     );
   }
 
-  Future<void> _remove(String name, {int? previousQuantity}) async {
+  /// Build widget to display ingredient with separated quantity and unit
+  Widget _buildIngredientDisplay(String ingredient) {
+    final parts = _parseIngredientDisplay(ingredient);
+    final name = parts['name'] ?? ingredient;
+    final quantity = parts['quantity'] ?? '';
+    final unit = parts['unit'] ?? '';
+    final hasQuantity = quantity.isNotEmpty;
+
+    if (!hasQuantity) {
+      return Text(
+        name,
+        style: const TextStyle(
+          color: AppTheme.foreground,
+          fontWeight: FontWeight.w500,
+          fontSize: 15,
+        ),
+      );
+    }
+
+    // Expand unit abbreviations (g -> gramos, ml -> mililitros, etc)
+    final expandedUnit = _expandUnit(unit);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            name,
+            style: const TextStyle(
+              color: AppTheme.foreground,
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppTheme.primary.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppTheme.primary.withValues(alpha: 0.3),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            '$quantity $expandedUnit'.trim(),
+            style: const TextStyle(
+              color: AppTheme.primary,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _remove(String name) async {
     await _repo.removeItem(name);
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text('Eliminado: $name'),
-        action: SnackBarAction(
-          label: 'Deshacer',
-          onPressed: () async {
-            final qty = (previousQuantity ?? 1).clamp(1, 1000);
-            await _repo.addItem(name, source: 'undo', quantity: qty);
-          },
-        ),
-        duration: const Duration(seconds: 3),
-      ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Eliminado: $name')),
     );
   }
 
@@ -315,7 +331,7 @@ class _PantryScreenState extends State<PantryScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                     side: BorderSide(
-                      color: AppTheme.primaryLight.withOpacity(0.3),
+                      color: AppTheme.primaryLight.withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),
@@ -333,87 +349,11 @@ class _PantryScreenState extends State<PantryScreen> {
                         size: 20,
                       ),
                     ),
-                    title: Text(
-                      name,
-                      style: const TextStyle(
-                        color: AppTheme.foreground,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Cantidad: ${item.quantity}',
-                      style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Botón editar
-                        IconButton(
-                          onPressed: () => _editItem(item),
-                          icon: Icon(
-                            Icons.edit,
-                            color: AppTheme.primary,
-                            size: 20,
-                          ),
-                          tooltip: 'Editar nombre',
-                          padding: const EdgeInsets.all(8),
-                          constraints: const BoxConstraints(),
-                        ),
-                        const SizedBox(width: 4),
-                        // Botón decrementar
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryLight.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: IconButton(
-                            onPressed: () async {
-                              final deleted = await _repo.adjustQuantity(name, -1);
-                              if (deleted && mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Eliminado: $name'),
-                                    action: SnackBarAction(
-                                      label: 'Deshacer',
-                                      onPressed: () async {
-                                        await _repo.addItem(name, source: 'undo', quantity: 1);
-                                      },
-                                    ),
-                                    duration: const Duration(seconds: 3),
-                                  ),
-                                );
-                              }
-                            },
-                            icon: const Icon(Icons.remove, size: 18),
-                            color: AppTheme.foreground,
-                            padding: const EdgeInsets.all(4),
-                            constraints: const BoxConstraints(),
-                            tooltip: 'Disminuir cantidad',
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        // Botón incrementar
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: IconButton(
-                            onPressed: () async {
-                              await _repo.adjustQuantity(name, 1);
-                            },
-                            icon: const Icon(Icons.add, size: 18),
-                            color: AppTheme.primary,
-                            padding: const EdgeInsets.all(4),
-                            constraints: const BoxConstraints(),
-                            tooltip: 'Aumentar cantidad',
-                          ),
-                        ),
-                      ],
+                    title: _buildIngredientDisplay(name),
+                    trailing: Icon(
+                      Icons.swipe_left,
+                      color: AppTheme.textSecondary.withValues(alpha: 0.5),
+                      size: 18,
                     ),
                   ),
                 ),

@@ -1,0 +1,9 @@
+{
+  "buildCommand": "flutter build web --release",
+  "outputDirectory": "build/web",
+  "installCommand": "flutter pub get",
+  "framework": "other",
+  "env": {
+    "FLUTTER_SUPPRESS_ANALYTICS": "true"
+  }
+}

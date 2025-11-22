@@ -1,0 +1,38 @@
+# iOS
+ios/
+
+# Android
+android/
+
+# macOS
+macos/
+
+# Windows
+windows/
+
+# Linux
+linux/
+
+# Node modules
+node_modules/
+
+# Test files
+test/
+
+# Build directories
+build/
+.dart_tool/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+
+# Analysis
+analysis_options.yaml

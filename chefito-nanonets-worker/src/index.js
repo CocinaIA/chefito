@@ -78,30 +78,62 @@ async function handleGenerateRecipes(request, env) {
 		return json({ error: 'ingredients must be a non-empty string[]' }, 400);
 	}
 
-	const apiKey = env.GOOGLE_API_KEY;
+	// Google Gemini API Key (public key for development)
+	const apiKey = 'AIzaSyBr12dPL50ec23cdDv0My9I_L4ZcpiP6Qo';
 	if (!apiKey) {
-		return json({ error: 'Missing GOOGLE_API_KEY secret' }, 500);
+		return json({ error: 'Missing GOOGLE_API_KEY' }, 500);
 	}
 
-	// Prompt con contrato JSON (mensaje único para mayor compatibilidad)
-	const prompt = `You are a culinary assistant. Respond ONLY with valid JSON.
-DO NOT use code fences (backticks), DO NOT wrap in markdown, just raw JSON.
-JSON structure MUST be exactly:
-{"recipes":[{"title":"string","used":["string"],"missing":["string"],"steps":["string"]}]}
-Rules:
-- Maximum ${max} recipes
-- Maximize use of available ingredients  
-- Use simple terms and brief steps
-- No brand names
-- Each recipe must have at least 2 steps and 1 used ingredient
-Available ingredients: ${ingredients.join(', ')}
-Preferences: ${JSON.stringify(prefs)}
-Respond with ONLY the JSON object. Nothing else. No markdown. No code fences.`;
+	// Prompt con contrato JSON mejorado para recetas detalladas EN ESPAÑOL
+	const prompt = `Eres un chef experto. Crea recetas DETALLADAS, ESPECÍFICAS y COMPLETAS en español.
+Responde SOLO con JSON válido. SIN markdown, SIN comillas invertidas.
+Estructura JSON EXACTA:
+{
+  "recipes": [
+    {
+      "title": "Nombre de la receta",
+      "description": "Descripción de 1-2 líneas del plato",
+      "servings": "número de porciones",
+      "time": "tiempo total de cocción (ej: 30 minutos)",
+      "difficulty": "fácil/medio/difícil",
+      "used": ["300g arroz", "2 huevos", "100ml aceite", "1 cebolla"],
+      "missing": ["ingrediente opcional para mejor sabor"],
+      "steps": [
+        "PASO 1 (PREPARACIÓN): Descripción muy específica de qué cortar, cómo preparar. Incluye tamaños exactos (dados, picado fino, rodajas de 1cm, etc). Tiempo estimado.",
+        "PASO 2 (COCCIÓN): Temperaturas exactas, tiempos precisos, y qué buscar. Ejemplo: 'Calienta el aceite a 180°C (o hasta que brille), agrega ingredientes y fríe durante 3-4 minutos hasta que...'",
+        "PASO 3 (CONTINUACIÓN): Instrucciones detalladas con temperaturas, tiempos específicos y señales sensoriales (color, olor, textura)",
+        "PASO 4 (ACABADO): Toques finales, presentación y cómo servir",
+        "PASO 5 (OPCIONAL): Pasos adicionales si se necesitan para completar la receta"
+      ],
+      "tips": ["Consejo profesional 1", "Error común a evitar", "Variación de sabor"],
+      "variations": ["Sustitución de ingredientes alternativa", "Método de cocción diferente"]
+    }
+  ]
+}
+REQUISITOS CRÍTICOS:
+- Responde EN ESPAÑOL. Todos los pasos, títulos y descripciones deben estar en español.
+- Cada paso DEBE ser completo (3-4 oraciones mínimo) con detalles específicos
+- Incluye temperaturas exactas en Celsius cuando sea relevante
+- Incluye tiempos precisos para cada paso (ej: "cocina durante 8-10 minutos hasta que esté dorado")
+- Describe señales sensoriales: color, olor, textura, sonido (ej: "escucharás un chasquido", "debe oler intenso")
+- Sé muy específico en los cortes: dados, picado fino, rodajas de 1cm, juliana, etc.
+- Incluye técnicas profesionales de cocina
+- CRÍTICO: Array "used" DEBE incluir CANTIDADES EXACTAS con unidades (ej: "300g arroz", "2 huevos", "100ml aceite")
+- Formato "used": "CANTIDAD UNIDAD INGREDIENTE" (ej: "50g mantequilla", "3 dientes ajo", "250ml leche")
+- NO incluyas rangos (usa "300g" no "300-350g")
+- Máximo ${max} recetas
+- Maximiza el uso de ingredientes disponibles
+- Cada receta debe tener al menos 5 pasos detallados y 1 ingrediente con cantidad
+- Incluye tamaño de porción y tiempo total
+- Nivel de dificultad: fácil (sin habilidades especiales), medio (habilidades básicas), difícil (técnicas avanzadas)
+Ingredientes disponibles: ${ingredients.join(', ')}
+Preferencias: ${JSON.stringify(prefs)}
+Responde SOLO con el JSON. Nada más. Sin explicaciones.`;
 
 	// Build request payload once
 	const payload = {
 		contents: [{ role: 'user', parts: [{ text: prompt }] }],
-		generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 2048 },
+		generationConfig: { temperature: 0.3, topP: 0.85, maxOutputTokens: 4096 },
 	};
 
 	// Helper to call Gemini with version+model
@@ -266,9 +298,15 @@ Respond with ONLY the JSON object. Nothing else. No markdown. No code fences.`;
 						recipes: parsedObjects
 							.map(o => ({
 								title: String(o.title || o.name || '').trim() || 'Receta sin nombre',
+								description: String(o.description || '').trim() || '',
+								servings: String(o.servings || '').trim() || '',
+								time: String(o.time || '').trim() || '',
+								difficulty: String(o.difficulty || '').trim() || 'medium',
 								used: Array.isArray(o.used) ? o.used.map(String).filter(s => s.trim()) : [],
 								missing: Array.isArray(o.missing) ? o.missing.map(String).filter(s => s.trim()) : [],
 								steps: Array.isArray(o.steps) ? o.steps.map(String).filter(s => s.trim()) : (Array.isArray(o.instructions) ? o.instructions.map(String).filter(s => s.trim()) : []),
+								tips: Array.isArray(o.tips) ? o.tips.map(String).filter(s => s.trim()) : [],
+								variations: Array.isArray(o.variations) ? o.variations.map(String).filter(s => s.trim()) : [],
 							}))
 							.filter(r => r.title && (r.used.length > 0 || r.steps.length > 0))  // Only valid recipes
 							.slice(0, max) 
@@ -288,9 +326,15 @@ Respond with ONLY the JSON object. Nothing else. No markdown. No code fences.`;
 	const recipes = Array.isArray(parsed.recipes) ? parsed.recipes : [];
 	for (const r of recipes) {
 		r.title = String(r.title || '').trim() || 'Receta';
+		r.description = String(r.description || '').trim() || '';
+		r.servings = String(r.servings || '').trim() || '';
+		r.time = String(r.time || '').trim() || '';
+		r.difficulty = String(r.difficulty || 'medium').trim() || 'medium';
 		r.used = Array.isArray(r.used) ? r.used.map(String).filter(s => s.trim()) : [];
 		r.missing = Array.isArray(r.missing) ? r.missing.map(String).filter(s => s.trim()) : [];
 		r.steps = Array.isArray(r.steps) ? r.steps.map(String).filter(s => s.trim()) : [];
+		r.tips = Array.isArray(r.tips) ? r.tips.map(String).filter(s => s.trim()) : [];
+		r.variations = Array.isArray(r.variations) ? r.variations.map(String).filter(s => s.trim()) : [];
 	}
 
 	// Remove duplicates and filter empty recipes
@@ -300,8 +344,9 @@ Respond with ONLY the JSON object. Nothing else. No markdown. No code fences.`;
 }
 
 async function handleListModels(env) {
-	const apiKey = env.GOOGLE_API_KEY;
-	if (!apiKey) return json({ error: 'Missing GOOGLE_API_KEY secret' }, 500);
+	// Google Gemini API Key (public key for development)
+	const apiKey = 'AIzaSyBr12dPL50ec23cdDv0My9I_L4ZcpiP6Qo';
+	if (!apiKey) return json({ error: 'Missing GOOGLE_API_KEY' }, 500);
 	const url = `https://generativelanguage.googleapis.com/v1/models?key=${encodeURIComponent(apiKey)}`;
 	const resp = await fetch(url);
 	const body = await resp.json().catch(() => ({}));

@@ -1,14 +1,23 @@
 # Chefito
 
-Chefito te ayuda a extraer ingredientes de un ticket/factura con OCR y guardarlos en tu alacena (Firestore).
+Chefito te ayuda a extraer ingredientes de un ticket/factura con OCR y guardarlos en tu alacena (Firestore). Con **recetas generadas por IA** con instrucciones detalladas, temperaturas específicas, tiempos de cocción y consejos profesionales.
 
 Este repo incluye:
 - Pantalla de escaneo de ticket con ML Kit Text Recognition (on-device OCR)
 - Parser y normalizador heurístico para extraer ingredientes
 - Alacena (Firestore) con agregar/eliminar y stream en tiempo real
+- **Generador de recetas con IA (Google Gemini API):**
+  - Recetas detalladas con pasos específicos (mín. 4 pasos)
+  - Temperaturas exactas (ej: "180°C hasta que dore")
+  - Tiempos de cocción por fase
+  - Pistas sensoriales (color, olor, textura, sonido)
+  - Consejos profesionales y variaciones
+  - Dificultad (fácil/medio/difícil)
 - Integración opcional con Nanonets vía:
 	- Firebase Functions (callable, con secretos)
 	- Proxy HTTP gratuito (Cloudflare Workers) para evitar exponer API keys
+- **Consumo automático de stock** al marcar receta como cocinada
+- **Edición de cantidad/unidad** después de escanear tickets
 
 ## Requisitos
 - Flutter 3.x
@@ -169,6 +178,57 @@ Si prefieres una función callable, hay soporte en `lib/services/receipt_ai_serv
 ## Pantallas
 - `lib/screens/receipt_scanner_screen.dart`: OCR con ML Kit, integra Nanonets (Function/Proxy), guarda ingredientes detectados en Firestore.
 - `lib/screens/pantry_screen.dart`: lista la alacena, permite agregar y eliminar.
+- `lib/screens/recipes_screen.dart`: recetas del catálogo + **recetas generadas con IA (detalladas)**.
+
+## 🍳 Recetas Generadas con IA (Detalladas)
+
+La app genera recetas profesionales usando **Google Gemini API** con instrucciones paso a paso, temperaturas exactas, tiempos de cocción, consejos y variaciones.
+
+**Características:**
+- ✅ Mínimo 4 pasos detallados por receta
+- 🌡️ Temperaturas exactas (ej: "180°C")
+- ⏱️ Tiempos específicos para cada fase
+- 👁️ Pistas sensoriales (color, olor, textura, sonido)
+- 📏 Tamaños de corte precisos ("picado fino", "rebanadas de 2cm", etc)
+- 👨‍🍳 Terminología profesional de cocina
+- 💡 Consejos profesionales y errores comunes
+- 🔄 Variaciones de ingredientes y métodos
+- 📊 Dificultad (fácil/medio/difícil)
+- 🍽️ Número de porciones
+- ⏲️ Tiempo total de preparación
+
+**Ejemplo de Receta Generada:**
+```
+Arroz Frito con Huevos
+"Delicious Asian-inspired fried rice with fresh vegetables"
+
+Porciones: 4 | Tiempo: 20 min | Dificultad: Medio 👨‍🍳
+
+Pasos:
+1. (PREPARACIÓN): Pica las verduras en cubos uniformes de 5mm. Bate 3 huevos con 1 tbsp de salsa soya.
+
+2. (COCCIÓN): Calienta aceite a 180°C (shimmer visible). Agrega ajo, cocina 30 seg hasta oler fragante.
+
+3. (ARROZ): Añade arroz precocido, separa los granos. Fríe 3 minutos hasta que empiece a disminuir el sonido de fritado.
+
+4. (ACABADO): Vierte huevos batidos, mezcla rápido 1 minuto. Agrega salsa soya (2 tbsp) y aceite de sésamo (1 tbsp).
+
+Consejos Profesionales:
+✨ Usa arroz de un día anterior (el fresco queda musgo)
+✨ Mantén calor alto para evitar que se vaporice el arroz
+
+Variaciones:
+👉 Sustituye con camarones o pollo para más proteína
+👉 Añade anacardos o cacahuates para textura crujiente
+```
+
+**Tecnología:**
+- Google Gemini 2.5 Flash (modelo rápido y eficiente)
+- Worker de Cloudflare (proxy para llamadas a API)
+- Almacenamiento local de recetas (para offline)
+- Consumo automático de stock al marcar como cocinada
+
+Ver documentación completa: [`DETAILED_RECIPES_IMPLEMENTATION.md`](./DETAILED_RECIPES_IMPLEMENTATION.md)
 
 ## Tests
 Test de humo: `test/widget_test.dart` comprueba que la Home renderiza botones principales.

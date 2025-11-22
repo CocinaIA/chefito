@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/ingredient.dart';
 import '../services/pantry_repository.dart';
 import '../services/ingredient_normalizer.dart';
 import '../services/recipe_recommender.dart';
@@ -18,6 +19,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
   final _repo = PantryRepository();
   final _ai = RecipeAIService();
   List<String> _pantry = [];
+  List<Ingredient> _ingredients = [];
   List<RecipeMatch> _matches = [];
   List<Map<String, dynamic>> _aiRecipes = [];
   bool _loading = true;
@@ -46,6 +48,8 @@ class _RecipesScreenState extends State<RecipesScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final items = await _repo.getAllItems();
+    final ingredients = await _repo.getAllIngredients();
+    
     // Strip quantity suffixes from items for recipe matching
     final stripped = _normalizedPantry(items);
     final normalized = IngredientNormalizer.normalize(stripped);
@@ -56,6 +60,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
     
     setState(() {
       _pantry = items; // Keep original with quantities for display
+      _ingredients = ingredients; // Store full Ingredient objects
       _matches = matches;
       _aiRecipes = cached; // Restore cached recipes
       _loading = false;
@@ -63,8 +68,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
   }
 
   Future<void> _generateAI() async {
-    final normalizedForAI = _normalizedPantry(_pantry);
-    if (normalizedForAI.isEmpty) {
+    if (_ingredients.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('La alacena está vacía. Escanea un ticket o agrega ingredientes antes de generar.')),
@@ -74,7 +78,12 @@ class _RecipesScreenState extends State<RecipesScreen> {
     }
     setState(() => _aiLoading = true);
     try {
-      final out = await _ai.generate(ingredients: normalizedForAI, max: 5);
+      // Send ingredients WITH quantities to AI
+      final out = await _ai.generate(
+        ingredients: _pantry,
+        ingredientsWithQuantity: _ingredients,
+        max: 5,
+      );
       setState(() => _aiRecipes = out);
       // Save generated recipes to storage
       await AIRecipesStorage.saveRecipes(out);
@@ -396,8 +405,8 @@ class _RecipesScreenState extends State<RecipesScreen> {
             fontSize: 13,
           ),
         ),
-        collapsedBackgroundColor: AppTheme.primaryLight.withOpacity(0.05),
-        backgroundColor: AppTheme.primaryLight.withOpacity(0.05),
+        collapsedBackgroundColor: AppTheme.primaryLight.withValues(alpha: 0.05),
+        backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.05),
         iconColor: AppTheme.primary,
         collapsedIconColor: AppTheme.primary,
         childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -435,17 +444,17 @@ class _RecipesScreenState extends State<RecipesScreen> {
     );
   }
 
-  Widget _aiTile(Map<String, dynamic> r) {
-    // This method is now replaced by _aiTileWithAnimation
-    // Kept for backwards compatibility but not used
-    return const SizedBox.shrink();
-  }
-
   Widget _aiTileWithAnimation(Map<String, dynamic> r, int index) {
     final title = (r['title'] ?? 'Receta').toString();
+    final description = (r['description'] ?? '').toString().trim();
+    final servings = (r['servings'] ?? '').toString().trim();
+    final time = (r['time'] ?? '').toString().trim();
+    final difficulty = (r['difficulty'] ?? 'medium').toString().trim();
     final used = ((r['used'] as List?) ?? []).cast<String>();
     final missing = ((r['missing'] as List?) ?? []).cast<String>();
     final steps = ((r['steps'] as List?) ?? []).cast<String>();
+    final tips = ((r['tips'] as List?) ?? []).cast<String>();
+    final variations = ((r['variations'] as List?) ?? []).cast<String>();
     
     // Gradient colors that cycle
     final gradients = [
@@ -456,6 +465,33 @@ class _RecipesScreenState extends State<RecipesScreen> {
       [const Color(0xFFEC4899), const Color(0xFFFDBE24)],
     ];
     final gradientPair = gradients[index % gradients.length];
+    
+    // Difficulty badge color
+    Color getDifficultyColor(String diff) {
+      switch (diff.toLowerCase()) {
+        case 'easy':
+          return Colors.green;
+        case 'medium':
+          return Colors.orange;
+        case 'hard':
+          return Colors.red;
+        default:
+          return Colors.blue;
+      }
+    }
+
+    String getDifficultyEmoji(String diff) {
+      switch (diff.toLowerCase()) {
+        case 'easy':
+          return '😊';
+        case 'medium':
+          return '👨‍🍳';
+        case 'hard':
+          return '🔥';
+        default:
+          return '🍳';
+      }
+    }
     
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -477,50 +513,110 @@ class _RecipesScreenState extends State<RecipesScreen> {
             child: Icon(Icons.auto_awesome, color: Colors.white, size: 20),
           ),
         ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: AppTheme.foreground,
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: AppTheme.foreground,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+            ),
+            if (description.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  description,
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w400,
+                    fontSize: 12,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
         ),
         subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade100,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '✅ ${used.length} usados',
-                  style: TextStyle(
-                    color: Colors.green.shade700,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+          padding: const EdgeInsets.only(top: 8),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                if (servings.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '🍽️ $servings',
+                        style: TextStyle(
+                          color: Colors.blue.shade700,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (time.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '⏱️ $time',
+                        style: TextStyle(
+                          color: Colors.purple.shade700,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: getDifficultyColor(difficulty).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${getDifficultyEmoji(difficulty)} ${difficulty[0].toUpperCase()}${difficulty.substring(1)}',
+                    style: TextStyle(
+                      color: getDifficultyColor(difficulty),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: missing.isEmpty ? Colors.blue.shade100 : Colors.orange.shade100,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  missing.isEmpty ? '🎉 Completa' : '❌ Faltan ${missing.length}',
-                  style: TextStyle(
-                    color: missing.isEmpty ? Colors.blue.shade700 : Colors.orange.shade700,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade100,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '✅ ${used.length}',
+                    style: TextStyle(
+                      color: Colors.green.shade700,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         collapsedBackgroundColor: Color.lerp(gradientPair[0], Colors.white, 0.85) ?? Colors.white,
@@ -530,9 +626,67 @@ class _RecipesScreenState extends State<RecipesScreen> {
         childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
           if (used.isNotEmpty)
-            _ChipsRow(label: 'Usas', items: used, color: Colors.green.shade100),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Usas',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.foreground,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: used.map((ingredient) {
+                    // Parse ingredient name and quantity
+                    final parts = _parseIngredient(ingredient);
+                    return _IngredientChip(
+                      name: parts['name'] ?? ingredient,
+                      quantity: parts['quantity'] ?? '',
+                      unit: _expandUnit(parts['unit'] ?? ''),
+                      backgroundColor: Colors.green.shade100,
+                      textColor: Colors.green.shade700,
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
           if (missing.isNotEmpty)
-            _ChipsRow(label: 'Te falta', items: missing, color: Colors.orange.shade100),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Te falta',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.foreground,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: missing.map((ingredient) {
+                    // Parse ingredient name and quantity
+                    final parts = _parseIngredient(ingredient);
+                    return _IngredientChip(
+                      name: parts['name'] ?? ingredient,
+                      quantity: parts['quantity'] ?? '',
+                      unit: _expandUnit(parts['unit'] ?? ''),
+                      backgroundColor: Colors.orange.shade100,
+                      textColor: Colors.orange.shade700,
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
           if (steps.isNotEmpty) ...[
             const SizedBox(height: 8),
             const Align(
@@ -593,19 +747,91 @@ class _RecipesScreenState extends State<RecipesScreen> {
               );
             }),
           ],
+          if (tips.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '💡 Consejos profesionales',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.foreground,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...tips.map((tip) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('✨ ', style: TextStyle(fontSize: 16)),
+                    Expanded(
+                      child: Text(
+                        tip,
+                        style: const TextStyle(
+                          color: AppTheme.foreground,
+                          fontSize: 13,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+          if (variations.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '🔄 Variaciones',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.foreground,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...variations.map((variation) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('👉 ', style: TextStyle(fontSize: 16)),
+                    Expanded(
+                      child: Text(
+                        variation,
+                        style: const TextStyle(
+                          color: AppTheme.foreground,
+                          fontSize: 13,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
           const SizedBox(height: 12),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [gradientPair[0].withOpacity(0.1), gradientPair[1].withOpacity(0.1)],
+                colors: [gradientPair[0].withValues(alpha: 0.1), gradientPair[1].withValues(alpha: 0.1)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: gradientPair[0].withOpacity(0.3),
+                color: gradientPair[0].withValues(alpha: 0.3),
               ),
             ),
             child: Row(
@@ -628,6 +854,261 @@ class _RecipesScreenState extends State<RecipesScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          // Button to mark recipe as used and update stock
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: gradientPair[0],
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: () => _markRecipeAsUsed(title, used),
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('✓ Marcar como cocinada'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Expand unit abbreviations to full names
+  String _expandUnit(String unit) {
+    if (unit.isEmpty) return '';
+    
+    final unitMap = {
+      'g': 'gramos',
+      'kg': 'kilogramos',
+      'ml': 'mililitros',
+      'l': 'litros',
+      'cucharada': 'cucharadas',
+      'taza': 'tazas',
+      'unidad': 'unidad',
+    };
+    
+    final lowerUnit = unit.toLowerCase().trim();
+    return unitMap[lowerUnit] ?? unit;
+  }
+
+  /// Parse ingredient string to extract name, quantity, and unit
+  /// Handles formats like: "arroz (500g)", "huevos (3 unidad)", "aceite (2 cucharadas)"
+  Map<String, String> _parseIngredient(String ingredient) {
+    // Try to match pattern: "name (quantity unit)" or "name (quantity)"
+    final match = RegExp(r'^(.+?)\s*\((\d+(?:\.\d+)?)\s*([a-záéíóúñ\s]*)\)').firstMatch(ingredient);
+    
+    if (match != null) {
+      return {
+        'name': match.group(1)?.trim() ?? ingredient,
+        'quantity': match.group(2)?.trim() ?? '',
+        'unit': match.group(3)?.trim() ?? '',
+      };
+    }
+    
+    // Return original ingredient if no match
+    return {'name': ingredient, 'quantity': '', 'unit': ''};
+  }
+
+  // Mark recipe as used and update stock in Firebase
+  /// Convert between different units of measurement
+  /// Returns the converted quantity, or null if conversion is not possible
+  double? _convertUnits(double quantity, String fromUnit, String toUnit) {
+    if (fromUnit.toLowerCase() == toUnit.toLowerCase()) {
+      return quantity;
+    }
+
+    final from = fromUnit.toLowerCase().trim();
+    final to = toUnit.toLowerCase().trim();
+
+    // Weight conversions (g <-> kg)
+    if ((from == 'g' && to == 'kg') || (from == 'gramos' && to == 'kg')) {
+      return quantity / 1000;
+    }
+    if ((from == 'kg' && to == 'g') || (from == 'kg' && to == 'gramos')) {
+      return quantity * 1000;
+    }
+
+    // Volume conversions (ml <-> l)
+    if ((from == 'ml' && to == 'l') || (from == 'mililitros' && to == 'l')) {
+      return quantity / 1000;
+    }
+    if ((from == 'l' && to == 'ml') || (from == 'l' && to == 'mililitros')) {
+      return quantity * 1000;
+    }
+
+    // Tablespoon to ml (1 cucharada = 15ml aprox)
+    if ((from == 'cucharada' || from == 'cucharadas') && (to == 'ml' || to == 'mililitros')) {
+      return quantity * 15;
+    }
+    if ((to == 'cucharada' || to == 'cucharadas') && (from == 'ml' || from == 'mililitros')) {
+      return quantity / 15;
+    }
+
+    // Cup to ml (1 taza = 240ml aprox)
+    if ((from == 'taza' || from == 'tazas') && (to == 'ml' || to == 'mililitros')) {
+      return quantity * 240;
+    }
+    if ((to == 'taza' || to == 'tazas') && (from == 'ml' || from == 'mililitros')) {
+      return quantity / 240;
+    }
+
+    // For "unidad" we cannot convert
+    return null;
+  }
+
+  Future<void> _markRecipeAsUsed(String recipeName, List<String> usedIngredients) async {
+    if (usedIngredients.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay ingredientes para consumir')),
+      );
+      return;
+    }
+
+    try {
+      for (final ingredientWithQuantity in usedIngredients) {
+        debugPrint('🔍 Procesando: $ingredientWithQuantity');
+        
+        // Parse the ingredient string to extract quantity, unit, and name
+        // Format: "300g arroz", "2 huevos", "100ml aceite", "1 cebolla"
+        final match = RegExp(r'^(\d+(?:\.\d+)?)\s*([a-záéíóúñ\s]*?)\s+(.+)$')
+            .firstMatch(ingredientWithQuantity.trim());
+        
+        if (match == null) {
+          debugPrint('⚠️ No se pudo parsear: $ingredientWithQuantity');
+          continue;
+        }
+
+        final recipeQuantity = double.tryParse(match.group(1) ?? '0') ?? 0;
+        final recipeUnit = (match.group(2) ?? '').trim();
+        final ingredientName = (match.group(3) ?? '').toLowerCase().trim();
+        
+        debugPrint('📊 Parsado: $recipeQuantity $recipeUnit de $ingredientName');
+
+        // Find the ingredient in our pantry
+        Ingredient? matchingIngredient;
+        try {
+          matchingIngredient = _ingredients.firstWhere(
+            (ing) => ing.baseIngredient.toLowerCase() == ingredientName ||
+                     ing.name.toLowerCase().contains(ingredientName) ||
+                     ingredientName.contains(ing.name.toLowerCase()),
+          );
+        } catch (e) {
+          debugPrint('⚠️ No se encontró ingrediente: $ingredientName');
+          debugPrint('📋 Disponibles: ${_ingredients.map((i) => '${i.name} (${i.quantity}${i.unit})').join(', ')}');
+          continue;
+        }
+
+        // Calculate consume amount with unit conversion
+        double consumeAmount;
+        
+        if (recipeUnit.toLowerCase() == matchingIngredient.unit.toLowerCase()) {
+          // Same unit: consume exactly what the recipe says
+          consumeAmount = recipeQuantity;
+          debugPrint('✅ Unidades iguales: consumiendo exactamente $consumeAmount ${matchingIngredient.unit}');
+        } else {
+          // Try to convert recipe quantity to pantry unit
+          final converted = _convertUnits(recipeQuantity, recipeUnit, matchingIngredient.unit);
+          if (converted != null) {
+            consumeAmount = converted;
+            debugPrint('✅ Conversión exitosa: $recipeQuantity $recipeUnit = $consumeAmount ${matchingIngredient.unit}');
+          } else {
+            // Conversion not possible, consume proportionally as fallback
+            consumeAmount = (matchingIngredient.quantity / 3).clamp(1.0, matchingIngredient.quantity);
+            debugPrint('⚠️ No se pudo convertir $recipeUnit a ${matchingIngredient.unit}. Consumiendo proporcionalmente 1/3: $consumeAmount ${matchingIngredient.unit}');
+          }
+        }
+        
+        debugPrint('✅ Consumiendo $consumeAmount ${matchingIngredient.unit} de ${matchingIngredient.name}');
+        await _repo.consumeIngredient(matchingIngredient.id, consumeAmount);
+      }
+
+      // Reload pantry
+      await _load();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Receta "$recipeName" cocinada. Stock actualizado.'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error general: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al actualizar stock: $e')),
+        );
+      }
+    }
+  }
+}
+
+/// Widget para mostrar un ingrediente con cantidad y unidad de forma separada y llamativa
+class _IngredientChip extends StatelessWidget {
+  final String name;
+  final String quantity;
+  final String unit;
+  final Color backgroundColor;
+  final Color textColor;
+
+  const _IngredientChip({
+    required this.name,
+    required this.quantity,
+    required this.unit,
+    required this.backgroundColor,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasQuantity = quantity.isNotEmpty;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: textColor.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Nombre del ingrediente (bold)
+          Flexible(
+            child: Text(
+              name,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (hasQuantity) ...[
+            const SizedBox(width: 6),
+            // Badge con cantidad y unidad
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: textColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '$quantity ${unit.isNotEmpty ? unit : ''}'.trim(),
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
