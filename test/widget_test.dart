@@ -13,8 +13,8 @@ void main() {
   testWidgets('Chefito renders Home with buttons', (WidgetTester tester) async {
     await tester.pumpWidget(const ChefitoApp());
 
-    expect(find.text('Chefito 🧑‍🍳'), findsOneWidget);
-    expect(find.text('Reconocer ingrediente'), findsOneWidget);
-    expect(find.text('Escanear ticket'), findsOneWidget);
+    expect(find.text('LetMeCook'), findsOneWidget);
+    expect(find.textContaining('Escanear'), findsOneWidget);
+    expect(find.textContaining('alacena'), findsOneWidget);
   });
 }

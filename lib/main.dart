@@ -3,7 +3,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
-import 'ingredient_recognizer.dart';
 import 'screens/receipt_scanner_screen.dart';
 import 'screens/pantry_screen.dart';
 import 'screens/recipes_screen.dart';
@@ -65,7 +64,6 @@ class ChefitoApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       home: const HomeScreen(),
       routes: {
-        '/reconocer': (context) => const IngredientRecognizer(),
         '/ticket': (context) => const ReceiptScannerScreen(),
         '/pantry': (context) => const PantryScreen(),
         '/recipes': (context) => const RecipesScreen(),
@@ -259,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               ),
                         ),
                         const SizedBox(height: 16),
-                        // Grid 2x2 adaptativo
+                        // Grid adaptativo con 3 botones
                         LayoutBuilder(
                           builder: (context, constraints) {
                             final itemWidth = (constraints.maxWidth - 12) / 2;
@@ -275,28 +273,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                       width: itemWidth,
                                       height: itemHeight,
                                       child: _PremiumActionCard(
-                                        icon: '📸',
-                                        label: 'Reconocer\ningrediente',
-                                        isPrimary: true,
-                                        onTap: () => Navigator.pushNamed(context, '/reconocer'),
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      width: itemWidth,
-                                      height: itemHeight,
-                                      child: _PremiumActionCard(
                                         icon: '🧾',
                                         label: 'Escanear\nfactura',
+                                        isPrimary: true,
                                         onTap: () => Navigator.pushNamed(context, '/ticket'),
                                       ),
                                     ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                // Segunda fila
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
                                     SizedBox(
                                       width: itemWidth,
                                       height: itemHeight,
@@ -306,6 +288,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                         onTap: () => Navigator.pushNamed(context, '/pantry'),
                                       ),
                                     ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                // Segunda fila - centrado
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
                                     SizedBox(
                                       width: itemWidth,
                                       height: itemHeight,
@@ -346,12 +335,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               ),
                         ),
                         const SizedBox(height: 16),
-                        _FeatureRow(
-                          icon: Icons.camera_alt_outlined,
-                          title: 'Reconocimiento Visual',
-                          description: 'Identifica ingredientes con tu cámara',
-                        ),
-                        const SizedBox(height: 12),
                         _FeatureRow(
                           icon: Icons.receipt_long_outlined,
                           title: 'Escaneo de Facturas',
